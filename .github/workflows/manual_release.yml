@@ -42,10 +42,9 @@ jobs:
         run: chmod +x ./gradlew
 
       # 从 Secrets 解码密钥库文件
-      - name: Decode Keystore
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-        run: echo $KEYSTORE_BASE64 | base64 --decode > $GITHUB_WORKSPACE/release.jks
+      - name: Decode keystore from base64
+        run:
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/release.jks
           
       # 核心步骤：构建签名的 Release APK
       # 修改点：SIGNING_STORE_PASSWORD 和 SIGNING_KEY_PASSWORD 现在都引用同一个 Secret
