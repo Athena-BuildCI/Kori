@@ -64,6 +64,8 @@ kotlin {
             implementation(libs.androidx.documentfile)
             implementation(libs.androidx.browser)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.androidx.glance)
+            implementation(libs.androidx.glance.appwidget)
         }
         commonMain.dependencies {
             implementation(compose.runtime)
@@ -105,7 +107,7 @@ kotlin {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
             implementation(libs.ktor.client.okhttp)
-            val javafxVersion = "21.0.7"
+            val javafxVersion = "21.0.8"
             implementation("org.openjfx:javafx-base:$javafxVersion:$platform")
             implementation("org.openjfx:javafx-graphics:$javafxVersion:$platform")
             implementation("org.openjfx:javafx-controls:$javafxVersion:$platform")
@@ -200,79 +202,7 @@ compose.desktop {
                     "-Dapple.awt.application.appearance=system"
                 )
                 infoPlist {
-                    extraKeysRawXml = """
-                    <key>CFBundleDocumentTypes</key>
-                    <array>
-                        <dict>
-                            <key>CFBundleTypeName</key>
-                            <string>Plain Text Document</string>
-                            <key>LSItemContentTypes</key>
-                            <array>
-                                <string>public.plain-text</string>
-                            </array>
-                            <key>CFBundleTypeExtensions</key>
-                            <array>
-                                <string>txt</string>
-                            </array>
-                            <key>CFBundleTypeRole</key>
-                            <string>Editor</string>
-                            <key>LSHandlerRank</key>
-                            <string>Alternate</string>
-                        </dict>
-                        <dict>
-                            <key>CFBundleTypeName</key>
-                            <string>Markdown Document</string>
-                            <key>LSItemContentTypes</key>
-                            <array>
-                                <!-- UTI for Markdown -->
-                                <string>net.daringfireball.markdown</string>
-                                <!-- Fallback for generic text, if needed, but net.daringfireball.markdown is standard -->
-                                <!-- <string>public.text</string> -->
-                            </array>
-                            <key>CFBundleTypeExtensions</key>
-                            <array>
-                                <string>md</string>
-                                <string>markdown</string>
-                            </array>
-                            <key>CFBundleTypeRole</key>
-                            <string>Editor</string>
-                            <key>LSHandlerRank</key>
-                            <string>Alternate</string>
-                        </dict>
-                    </array>
-                    <key>NSServices</key>
-                    <array>
-                        <dict>
-                            <key>NSMenuItem</key>
-                            <dict>
-                                <key>default</key>
-                                <string>Send to Kori</string> <!-- 显示在菜单中的名称 -->
-                            </dict>
-                            <key>NSMessage</key>
-                            <string>handleServiceAction</string>
-                            <key>NSPortName</key>
-                            <string>${bundleID}</string>
-                            
-                            <!-- 处理选中的文本 -->
-                            <key>NSSendTypes</key>
-                            <array>
-                                <string>public.plain-text</string> <!-- 接收纯文本 -->
-                            </array>
-                            
-                            <!-- 处理文件 (使其也出现在文件的 "共享" 菜单中) -->
-                            <key>NSSendFileTypes</key>
-                            <array>
-                                <string>public.plain-text</string> <!-- .txt files -->
-                                <string>net.daringfireball.markdown</string> <!-- .md files -->
-                            </array>
-
-                            <key>NSRequiredContext</key>
-                            <dict>
-                                <key>NSTextContent</key> <string>YES</string>
-                            </dict>
-                        </dict>
-                    </array>
-                    """.trimIndent()
+                    extraKeysRawXml = macExtraPlistKeys
                 }
 //                iconFile.set(project.file("icon.icns"))
             }
@@ -301,3 +231,77 @@ compose.desktop {
         }
     }
 }
+
+val macExtraPlistKeys: String
+    get() = """
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>deep link</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>kori</string>
+            </array>
+        </dict>
+    </array>
+    <key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>md</string>
+				<string>markdown</string>
+			</array>
+			<key>CFBundleTypeIconSystemGenerated</key>
+			<true/>
+			<key>CFBundleTypeName</key>
+			<string>Markdown</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>net.daringfireball.markdown</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>txt</string>
+			</array>
+			<key>CFBundleTypeIconSystemGenerated</key>
+			<true/>
+			<key>CFBundleTypeName</key>
+			<string>纯文本</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.plain-text</string>
+			</array>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>html</string>
+				<string>htm</string>
+			</array>
+			<key>CFBundleTypeIconSystemGenerated</key>
+			<true/>
+			<key>CFBundleTypeName</key>
+			<string>HTML</string>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>public.html</string>
+			</array>
+		</dict>
+	</array>
+    """
