@@ -6,7 +6,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,7 +30,6 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
 import androidx.compose.material.icons.outlined.DeleteForever
 import androidx.compose.material.icons.outlined.FileUpload
-import androidx.compose.material.icons.outlined.IosShare
 import androidx.compose.material.icons.outlined.Print
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.SwapHorizontalCircle
@@ -110,7 +108,6 @@ import org.yangdai.kori.presentation.component.note.moveCursorRightStateless
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.navigation.Screen
 import org.yangdai.kori.presentation.navigation.UiEvent
-import org.yangdai.kori.presentation.screen.settings.AppTheme
 import org.yangdai.kori.presentation.util.formatInstant
 import org.yangdai.kori.presentation.util.formatNumber
 import org.yangdai.kori.presentation.util.isScreenWidthExpanded
@@ -130,12 +127,6 @@ fun TemplateScreen(
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val html by viewModel.html.collectAsStateWithLifecycle()
     val outline by viewModel.outline.collectAsStateWithLifecycle()
-    val appTheme by viewModel.appTheme.collectAsStateWithLifecycle()
-    val isSystemInDarkTheme = isSystemInDarkTheme()
-    val isAppInDarkTheme = remember(appTheme, isSystemInDarkTheme) {
-        if (appTheme == AppTheme.SYSTEM) isSystemInDarkTheme
-        else appTheme == AppTheme.DARK
-    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -369,7 +360,6 @@ fun TemplateScreen(
                             noteType = noteEditingState.noteType,
                             contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
                             scrollState = scrollState,
-                            isAppInDarkTheme = isAppInDarkTheme,
                             isSheetVisible = isSideSheetOpen,
                             printTrigger = printTrigger
                         )
@@ -402,7 +392,6 @@ fun TemplateScreen(
                                     noteType = noteEditingState.noteType,
                                     contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
                                     scrollState = scrollState,
-                                    isAppInDarkTheme = isAppInDarkTheme,
                                     isSheetVisible = isSideSheetOpen,
                                     printTrigger = printTrigger
                                 )
@@ -449,8 +438,7 @@ fun TemplateScreen(
             if (!currentPlatformInfo.isDesktop())
                 IconButton(onClick = { showShareDialog = true }) {
                     Icon(
-                        imageVector = if (currentPlatformInfo.operatingSystem == OS.ANDROID) Icons.Outlined.Share
-                        else Icons.Outlined.IosShare,
+                        imageVector = Icons.Outlined.Share,
                         contentDescription = null
                     )
                 }

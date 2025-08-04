@@ -17,6 +17,7 @@ import javafx.concurrent.Worker
 import javafx.embed.swing.JFXPanel
 import javafx.scene.Scene
 import javafx.scene.web.WebView
+import org.yangdai.kori.presentation.theme.LocalAppConfig
 import java.awt.Desktop
 import java.awt.event.MouseEvent
 import java.awt.event.MouseWheelEvent
@@ -28,7 +29,6 @@ actual fun MarkdownView(
     modifier: Modifier,
     html: String,
     scrollState: ScrollState,
-    isAppInDarkTheme: Boolean,
     styles: MarkdownStyles,
     isSheetVisible: Boolean,
     printTrigger: MutableState<Boolean>
@@ -89,8 +89,8 @@ actual fun MarkdownView(
         }
     }
 
-    val data =
-        remember(html, styles, isAppInDarkTheme) { processHtml(html, styles, isAppInDarkTheme) }
+    val appConfig = LocalAppConfig.current
+    val data = remember(html, styles, appConfig) { processHtml(html, styles, appConfig) }
 
     // Embed the JFXPanel using SwingPanel
     SwingPanel(

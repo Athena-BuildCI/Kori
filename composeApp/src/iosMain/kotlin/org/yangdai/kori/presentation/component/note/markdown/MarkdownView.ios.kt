@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
+import org.yangdai.kori.presentation.theme.LocalAppConfig
 import org.yangdai.kori.presentation.util.toUIColor
 import platform.CoreGraphics.CGRectMake
 import platform.Foundation.NSBundle
@@ -35,16 +36,14 @@ actual fun MarkdownView(
     modifier: Modifier,
     html: String,
     scrollState: ScrollState,
-    isAppInDarkTheme: Boolean,
     styles: MarkdownStyles,
     isSheetVisible: Boolean,
     printTrigger: MutableState<Boolean>
 ) {
     var webView by remember { mutableStateOf<WKWebView?>(null) }
     val navigationDelegate = remember { NavigationDelegate() }
-
-    val data =
-        remember(html, styles, isAppInDarkTheme) { processHtml(html, styles, isAppInDarkTheme) }
+    val appConfig = LocalAppConfig.current
+    val data = remember(html, styles, appConfig) { processHtml(html, styles, appConfig) }
 
     UIKitView(
         factory = {
