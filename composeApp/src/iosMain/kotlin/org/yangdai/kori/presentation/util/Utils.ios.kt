@@ -5,11 +5,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.platform.ClipEntry
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.usePinned
 import kotlinx.datetime.toNSDate
 import org.yangdai.kori.data.local.entity.NoteEntity
 import org.yangdai.kori.data.local.entity.NoteType
+import platform.CoreGraphics.CGBitmapContextCreate
+import platform.CoreGraphics.CGBitmapContextCreateImage
+import platform.CoreGraphics.CGColorSpaceCreateDeviceRGB
+import platform.CoreGraphics.CGImageAlphaInfo
 import platform.Foundation.NSDateFormatter
 import platform.Foundation.NSDateFormatterMediumStyle
 import platform.Foundation.NSDateFormatterShortStyle
@@ -25,6 +33,7 @@ import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
 import platform.UIKit.UIColor
+import platform.UIKit.UIImage
 import platform.UIKit.UIUserInterfaceStyle
 import platform.UIKit.UIView
 import platform.UIKit.UIViewController
@@ -141,4 +150,34 @@ fun UIView.applyTheme(dark: Boolean) {
                 UIUserInterfaceStyle.UIUserInterfaceStyleLight
             }
     }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+fun ImageBitmap.toUIImage(): UIImage? {
+    val width = this.width
+    val height = this.height
+    val bytes = this.asSkiaBitmap().readPixels() ?: return null
+    // BGRA to RGBA
+    for (i in 0 until bytes.size step 4) {
+        val b = bytes[i]
+        val g = bytes[i + 1]
+        val r = bytes[i + 2]
+        bytes[i] = r
+        bytes[i + 1] = g
+        bytes[i + 2] = b
+    }
+
+    val colorSpace = CGColorSpaceCreateDeviceRGB()
+    val context = CGBitmapContextCreate(
+        data = bytes.usePinned { it.addressOf(0) },
+        width = width.toULong(),
+        height = height.toULong(),
+        bitsPerComponent = 8u,
+        bytesPerRow = (4 * width).toULong(),
+        space = colorSpace,
+        bitmapInfo = CGImageAlphaInfo.kCGImageAlphaPremultipliedLast.value
+    )
+
+    val cgImage = CGBitmapContextCreateImage(context)
+    return cgImage?.let { UIImage.imageWithCGImage(it) }
 }

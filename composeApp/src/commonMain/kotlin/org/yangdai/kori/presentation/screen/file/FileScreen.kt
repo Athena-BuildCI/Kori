@@ -113,6 +113,7 @@ import org.yangdai.kori.data.local.entity.NoteType
 import org.yangdai.kori.isDesktop
 import org.yangdai.kori.presentation.component.PlatformStyleTopAppBarNavigationIcon
 import org.yangdai.kori.presentation.component.TooltipIconButton
+import org.yangdai.kori.presentation.component.dialog.DialogMaxWidth
 import org.yangdai.kori.presentation.component.dialog.NoteTypeDialog
 import org.yangdai.kori.presentation.component.dialog.ShareDialog
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
@@ -434,7 +435,7 @@ fun FileScreen(
                 }
             }
             AdaptiveEditorRow(
-                visible = !isReadView,
+                visible = !isReadView && !isSearching,
                 type = fileEditingState.fileType,
                 scrollState = scrollState,
                 bottomPadding = innerPadding.calculateBottomPadding(),
@@ -463,6 +464,7 @@ fun FileScreen(
         ModalBottomSheet(
             sheetState = templatesSheetState,
             sheetGesturesEnabled = false,
+            sheetMaxWidth = DialogMaxWidth,
             onDismissRequest = { showTemplatesBottomSheet = false },
             dragHandle = {
                 Row(
