@@ -206,9 +206,7 @@ fun TemplateScreen(
                         readOnly = isReadView
                     )
                 },
-                navigationIcon = {
-                    PlatformStyleTopAppBarNavigationIcon(onClick = navigateUp)
-                },
+                navigationIcon = { PlatformStyleTopAppBarNavigationIcon(navigateUp) },
                 actions = {
                     if (!isReadView)
                         TooltipIconButton(
@@ -372,7 +370,7 @@ fun TemplateScreen(
         exit = scaleOut(targetScale = 0.9f)
     ) {
         val drawState = rememberDrawState(viewModel.contentState.text.toString())
-        InkScreen(drawState) {
+        InkScreen(drawState, noteEditingState.id) {
             viewModel.contentState.setTextAndPlaceCursorAtEnd(DrawState.serializeDrawState(drawState))
             isReadView = true
         }
