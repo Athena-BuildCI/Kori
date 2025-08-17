@@ -1,9 +1,6 @@
 package org.yangdai.kori.presentation.screen.template
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.draggable
@@ -22,8 +19,6 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.EditNote
@@ -39,7 +34,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.runtime.Composable
@@ -101,9 +95,6 @@ import org.yangdai.kori.presentation.component.note.FindAndReplaceField
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
 import org.yangdai.kori.presentation.component.note.TitleTextField
-import org.yangdai.kori.presentation.component.note.drawing.DrawState
-import org.yangdai.kori.presentation.component.note.drawing.InkScreen
-import org.yangdai.kori.presentation.component.note.drawing.rememberDrawState
 import org.yangdai.kori.presentation.component.note.plaintext.PlainTextEditor
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.navigation.Screen
@@ -256,12 +247,7 @@ fun TemplateScreen(
                     findAndReplaceState = findAndReplaceState
                 )
             } else if (noteEditingState.noteType == NoteType.Drawing) {
-                Text(
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .clickable { isReadView = !isReadView },
-                    text = viewModel.contentState.text.toString()
-                )
+                // 绘画不能创建模版
             } else {
                 if (isScreenWidthExpanded()) {
                     Row(
@@ -361,18 +347,6 @@ fun TemplateScreen(
                 textFieldState = viewModel.contentState,
                 isTemplate = true
             )
-        }
-    }
-
-    AnimatedVisibility(
-        visible = noteEditingState.noteType == NoteType.Drawing && !isReadView,
-        enter = scaleIn(initialScale = 0.9f),
-        exit = scaleOut(targetScale = 0.9f)
-    ) {
-        val drawState = rememberDrawState(viewModel.contentState.text.toString())
-        InkScreen(drawState, noteEditingState.id) {
-            viewModel.contentState.setTextAndPlaceCursorAtEnd(DrawState.serializeDrawState(drawState))
-            isReadView = true
         }
     }
 

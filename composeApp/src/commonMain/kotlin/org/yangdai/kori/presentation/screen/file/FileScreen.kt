@@ -1,8 +1,6 @@
 package org.yangdai.kori.presentation.screen.file
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -30,8 +28,6 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Close
@@ -83,7 +79,6 @@ import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kfile.PlatformFile
-import kfile.getFileName
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.char_count
 import kori.composeapp.generated.resources.drawing
@@ -121,9 +116,6 @@ import org.yangdai.kori.presentation.component.note.FindAndReplaceField
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
 import org.yangdai.kori.presentation.component.note.TitleTextField
-import org.yangdai.kori.presentation.component.note.drawing.DrawState
-import org.yangdai.kori.presentation.component.note.drawing.InkScreen
-import org.yangdai.kori.presentation.component.note.drawing.rememberDrawState
 import org.yangdai.kori.presentation.component.note.plaintext.PlainTextEditor
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.component.note.template.TemplateProcessor
@@ -290,12 +282,7 @@ fun FileScreen(
                     findAndReplaceState = findAndReplaceState
                 )
             } else if (fileEditingState.fileType == NoteType.Drawing) {
-                Text(
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .clickable { isReadView = !isReadView },
-                    text = viewModel.contentState.text.toString()
-                )
+                // 不存在绘画类型文件
             } else {
                 if (isScreenWidthExpanded()) {
                     Row(
@@ -400,18 +387,6 @@ fun FileScreen(
                     }
                 }
             }
-        }
-    }
-
-    AnimatedVisibility(
-        visible = fileEditingState.fileType == NoteType.Drawing && !isReadView,
-        enter = scaleIn(initialScale = 0.9f),
-        exit = scaleOut(targetScale = 0.9f)
-    ) {
-        val drawState = rememberDrawState(viewModel.contentState.text.toString())
-        InkScreen(drawState, file.getFileName()) {
-            viewModel.contentState.setTextAndPlaceCursorAtEnd(DrawState.serializeDrawState(drawState))
-            isReadView = true
         }
     }
 

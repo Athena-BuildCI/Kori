@@ -2,8 +2,12 @@ package org.yangdai.kori.presentation.screen.note
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.Orientation
@@ -77,6 +81,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -136,6 +141,7 @@ import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
 import org.yangdai.kori.presentation.component.note.TitleTextField
 import org.yangdai.kori.presentation.component.note.drawing.DrawState
+import org.yangdai.kori.presentation.component.note.drawing.InNoteDrawPreview
 import org.yangdai.kori.presentation.component.note.drawing.InkScreen
 import org.yangdai.kori.presentation.component.note.drawing.rememberDrawState
 import org.yangdai.kori.presentation.component.note.plaintext.PlainTextEditor
@@ -220,6 +226,7 @@ fun NoteScreen(
         isSearching = false
         pagerState.animateScrollToPage(if (isReadView) 1 else 0)
     }
+    val cachedImageBitmap = remember { mutableStateOf<ImageBitmap?>(null) }
 
     Scaffold(
         modifier = Modifier.imePadding().onPreviewKeyEvent { keyEvent ->
@@ -269,7 +276,7 @@ fun NoteScreen(
                         if (isLargeScreen)
                             TitleTextField(
                                 state = viewModel.titleState,
-                                readOnly = isReadView,
+                                readOnly = isReadView && noteEditingState.noteType != NoteType.Drawing,
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
                     }
@@ -319,7 +326,7 @@ fun NoteScreen(
                     else {
                         TitleTextField(
                             state = viewModel.titleState,
-                            readOnly = isReadView,
+                            readOnly = isReadView && noteEditingState.noteType != NoteType.Drawing,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         )
                     }
@@ -337,11 +344,13 @@ fun NoteScreen(
                     findAndReplaceState = findAndReplaceState
                 )
             } else if (noteEditingState.noteType == NoteType.Drawing) {
-                Text(
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                        .verticalScroll(rememberScrollState())
+                InNoteDrawPreview(
+                    modifier = Modifier.fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .verticalScroll(scrollState)
                         .clickable { isReadView = !isReadView },
-                    text = viewModel.contentState.text.toString()
+                    imageBitmap = cachedImageBitmap.value,
+                    uuid = noteEditingState.id
                 )
             } else {
                 if (isLargeScreen) {
@@ -456,11 +465,11 @@ fun NoteScreen(
 
     AnimatedVisibility(
         visible = noteEditingState.noteType == NoteType.Drawing && !isReadView,
-        enter = scaleIn(initialScale = 0.9f),
-        exit = scaleOut(targetScale = 0.9f)
+        enter = scaleIn(initialScale = 0.95f) + slideInVertically { it / 20 } + fadeIn(),
+        exit = scaleOut(targetScale = 0.95f) + slideOutVertically { it / 20 } + fadeOut()
     ) {
         val drawState = rememberDrawState(viewModel.contentState.text.toString())
-        InkScreen(drawState, noteEditingState.id) {
+        InkScreen(drawState, noteEditingState.id, cachedImageBitmap) {
             viewModel.contentState.setTextAndPlaceCursorAtEnd(DrawState.serializeDrawState(drawState))
             isReadView = true
         }
@@ -584,13 +593,6 @@ fun NoteScreen(
                 )
             }
 
-            IconButton(onClick = { showNoteTypeDialog = true }) {
-                Icon(
-                    imageVector = Icons.Outlined.SwapHorizontalCircle,
-                    contentDescription = null
-                )
-            }
-
             IconButton(onClick = { viewModel.moveNoteToTrash() }) {
                 Icon(
                     imageVector = Icons.Outlined.Delete,
@@ -598,32 +600,39 @@ fun NoteScreen(
                 )
             }
 
-            if (!currentPlatformInfo.isDesktop())
-                IconButton(onClick = { showShareDialog = true }) {
+            if (noteEditingState.noteType != NoteType.Drawing) {
+                IconButton(onClick = { showNoteTypeDialog = true }) {
                     Icon(
-                        imageVector = Icons.Outlined.Share,
+                        imageVector = Icons.Outlined.SwapHorizontalCircle,
                         contentDescription = null
                     )
                 }
+                if (!currentPlatformInfo.isDesktop())
+                    IconButton(onClick = { showShareDialog = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Share,
+                            contentDescription = null
+                        )
+                    }
+                IconButton(onClick = { showExportDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.FileUpload,
+                        contentDescription = null
+                    )
+                }
+            }
 
             AnimatedVisibility(noteEditingState.noteType == NoteType.MARKDOWN) {
-                Column {
-                    IconButton(onClick = { showExportDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.FileUpload,
-                            contentDescription = null
-                        )
-                    }
-                    IconButton(onClick = { printTrigger.value = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Print,
-                            contentDescription = null
-                        )
-                    }
+                IconButton(onClick = { printTrigger.value = true }) {
+                    Icon(
+                        imageVector = Icons.Outlined.Print,
+                        contentDescription = null
+                    )
                 }
             }
         },
         drawerContent = {
+            /**通用侧边栏信息：类型，时间**/
             NoteSideSheetItem(
                 key = stringResource(Res.string.type),
                 value = when (noteEditingState.noteType) {
@@ -633,7 +642,6 @@ fun NoteScreen(
                     NoteType.Drawing -> stringResource(Res.string.drawing)
                 }
             )
-
             val formattedCreated = remember(noteEditingState.createdAt) {
                 if (noteEditingState.createdAt.isBlank()) ""
                 else formatInstant(Instant.parse(noteEditingState.createdAt))
@@ -651,26 +659,33 @@ fun NoteScreen(
                 value = formattedUpdated
             )
 
-            NoteSideSheetItem(
-                key = stringResource(Res.string.char_count),
-                value = formatNumber(textState.charCount)
-            )
-            NoteSideSheetItem(
-                key = stringResource(Res.string.word_count),
-                value = formatNumber(textState.wordCountWithPunctuation)
-            )
-            NoteSideSheetItem(
-                key = stringResource(Res.string.word_count_without_punctuation),
-                value = formatNumber(textState.wordCountWithoutPunctuation)
-            )
-            NoteSideSheetItem(
-                key = stringResource(Res.string.line_count),
-                value = formatNumber(textState.lineCount)
-            )
-            NoteSideSheetItem(
-                key = stringResource(Res.string.paragraph_count),
-                value = formatNumber(textState.paragraphCount)
-            )
+            if (noteEditingState.noteType == NoteType.PLAIN_TEXT || noteEditingState.noteType == NoteType.MARKDOWN) {
+                /**文本文件信息：字符数，单词数，行数，段落数**/
+                NoteSideSheetItem(
+                    key = stringResource(Res.string.char_count),
+                    value = formatNumber(textState.charCount)
+                )
+                NoteSideSheetItem(
+                    key = stringResource(Res.string.word_count),
+                    value = formatNumber(textState.wordCountWithPunctuation)
+                )
+                NoteSideSheetItem(
+                    key = stringResource(Res.string.word_count_without_punctuation),
+                    value = formatNumber(textState.wordCountWithoutPunctuation)
+                )
+                NoteSideSheetItem(
+                    key = stringResource(Res.string.line_count),
+                    value = formatNumber(textState.lineCount)
+                )
+                NoteSideSheetItem(
+                    key = stringResource(Res.string.paragraph_count),
+                    value = formatNumber(textState.paragraphCount)
+                )
+            } else if (noteEditingState.noteType == NoteType.TODO) {
+                /**总任务，已完成，待办，进度**/
+            } else {
+                /**绘图信息：笔画数**/
+            }
         }
     )
 

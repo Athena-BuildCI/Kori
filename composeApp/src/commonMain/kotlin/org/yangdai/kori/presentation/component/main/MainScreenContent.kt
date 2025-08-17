@@ -130,6 +130,7 @@ import org.yangdai.kori.presentation.component.PlatformStyleTopAppBarTitle
 import org.yangdai.kori.presentation.component.TooltipIconButton
 import org.yangdai.kori.presentation.component.dialog.FoldersDialog
 import org.yangdai.kori.presentation.component.dialog.NoteSortOptionBottomSheet
+import org.yangdai.kori.presentation.component.main.card.NoteItemProperties
 import org.yangdai.kori.presentation.navigation.Screen
 import org.yangdai.kori.presentation.screen.main.MainViewModel
 import org.yangdai.kori.presentation.util.isScreenWidthExpanded
@@ -677,12 +678,18 @@ fun MainScreenContent(
                 }
             }
 
-            val items = listOf(
+            val commonItems = listOf(
                 stringResource(Res.string.plain_text),
                 stringResource(Res.string.markdown),
-                stringResource(Res.string.todo_text),
-                stringResource(Res.string.drawing)
+                stringResource(Res.string.todo_text)
             )
+
+            val items = if (currentDrawerItem is DrawerItem.Templates) {
+                commonItems
+            } else {
+                commonItems + stringResource(Res.string.drawing)
+            }
+
             FloatingActionButtonMenu(
                 modifier = Modifier.align(Alignment.BottomEnd)
                     .padding(bottom = innerPadding.calculateBottomPadding()),
