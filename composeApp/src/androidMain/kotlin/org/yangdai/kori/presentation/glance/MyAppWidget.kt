@@ -2,10 +2,15 @@ package org.yangdai.kori.presentation.glance
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.Bitmap
 import android.os.Build
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -36,25 +41,38 @@ import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
+import androidx.glance.layout.ContentScale
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
+import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
 import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
+import androidx.glance.layout.width
 import androidx.glance.text.FontFamily
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextAlign
 import androidx.glance.text.TextStyle
+import coil3.imageLoader
+import coil3.request.ErrorResult
+import coil3.request.ImageRequest
+import coil3.request.SuccessResult
+import coil3.size.Dimension
+import coil3.toBitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.yangdai.kori.MainActivity
 import org.yangdai.kori.R
 import org.yangdai.kori.data.getDatabaseBuilder
 import org.yangdai.kori.data.local.entity.NoteEntity
+import org.yangdai.kori.data.local.entity.NoteType
 import org.yangdai.kori.data.local.getRoomDatabase
 import org.yangdai.kori.data.repository.NoteRepositoryImpl
 import org.yangdai.kori.presentation.component.note.markdown.Properties.splitPropertiesAndContent
+import java.io.File
 
 class MyAppWidget : GlanceAppWidget() {
 
@@ -62,7 +80,7 @@ class MyAppWidget : GlanceAppWidget() {
         private val EXTRA_SMALL = DpSize(48.dp, 48.dp) // 仅显示创建按钮
         private val SMALL = DpSize(128.dp, 72.dp) // 显示应用名和创建按钮
         private val MEDIUM = DpSize(128.dp, 128.dp) // 无标题栏
-        private val LARGE = DpSize(150.dp, 250.dp) // 显示标题栏
+        private val LARGE = DpSize(288.dp, 250.dp) // 显示标题栏
     }
 
     override val previewSizeMode: PreviewSizeMode =
@@ -140,12 +158,40 @@ class MyAppWidget : GlanceAppWidget() {
 
                             Spacer(modifier = GlanceModifier.defaultWeight())
 
-                            SquareIconButton(
-                                modifier = GlanceModifier.size(48.dp),
-                                imageProvider = ImageProvider(R.drawable.outline_compose_24),
-                                contentDescription = "Add Note",
+                            CircleIconButton(
+                                imageProvider = ImageProvider(R.drawable.new_text_24px),
+                                contentDescription = "new plain text",
+                                backgroundColor = GlanceTheme.colors.widgetBackground,
+                                contentColor = GlanceTheme.colors.primary,
                                 onClick = actionStartActivity<MainActivity>(
-                                    actionParametersOf(destinationKey to "note/")
+                                    actionParametersOf(destinationKey to "note?noteType=0")
+                                )
+                            )
+                            CircleIconButton(
+                                imageProvider = ImageProvider(R.drawable.new_markdown_24px),
+                                contentDescription = "new markdown",
+                                backgroundColor = GlanceTheme.colors.widgetBackground,
+                                contentColor = GlanceTheme.colors.primary,
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=1")
+                                )
+                            )
+                            CircleIconButton(
+                                imageProvider = ImageProvider(R.drawable.new_todo_24px),
+                                contentDescription = "new todo",
+                                backgroundColor = GlanceTheme.colors.widgetBackground,
+                                contentColor = GlanceTheme.colors.primary,
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=2")
+                                )
+                            )
+                            CircleIconButton(
+                                imageProvider = ImageProvider(R.drawable.new_draw_24px),
+                                contentDescription = "new drawing",
+                                backgroundColor = GlanceTheme.colors.widgetBackground,
+                                contentColor = GlanceTheme.colors.primary,
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=3")
                                 )
                             )
                         }
@@ -162,8 +208,8 @@ class MyAppWidget : GlanceAppWidget() {
                     ) {
                         CircleIconButton(
                             modifier = GlanceModifier.size(48.dp),
-                            imageProvider = ImageProvider(R.drawable.outline_compose_24),
-                            contentDescription = "Add Note",
+                            imageProvider = ImageProvider(R.drawable.new_text_24px),
+                            contentDescription = "new plain text",
                             backgroundColor = GlanceTheme.colors.primary,
                             contentColor = GlanceTheme.colors.onPrimary,
                             onClick = actionStartActivity<MainActivity>(
@@ -184,8 +230,8 @@ class MyAppWidget : GlanceAppWidget() {
                             contentAlignment = Alignment.Center
                         ) {
                             Image(
-                                provider = ImageProvider(R.drawable.outline_compose_24),
-                                contentDescription = "Add Note",
+                                provider = ImageProvider(R.drawable.new_text_24px),
+                                contentDescription = "new plain text",
                                 colorFilter = ColorFilter.tint(GlanceTheme.colors.onSecondaryContainer)
                             )
                         }
@@ -193,26 +239,43 @@ class MyAppWidget : GlanceAppWidget() {
                 else
                     Scaffold {
                         Row(
-                            modifier = GlanceModifier.fillMaxSize(),
-                            verticalAlignment = Alignment.CenterVertically
+                            modifier = GlanceModifier.fillMaxSize().padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text(
-                                text = "Kori",
-                                maxLines = 1,
-                                style = TextStyle(
-                                    color = GlanceTheme.colors.onBackground,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    fontFamily = FontFamily.Serif
+                            SquareIconButton(
+                                modifier = GlanceModifier.fillMaxHeight().defaultWeight(),
+                                imageProvider = ImageProvider(R.drawable.new_text_24px),
+                                contentDescription = "new plain text",
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=0")
                                 )
                             )
-                            Spacer(modifier = GlanceModifier.defaultWeight())
+                            Spacer(modifier = GlanceModifier.width(12.dp))
                             SquareIconButton(
-                                modifier = GlanceModifier.size(48.dp),
-                                imageProvider = ImageProvider(R.drawable.outline_compose_24),
-                                contentDescription = "Add Note",
+                                modifier = GlanceModifier.fillMaxHeight().defaultWeight(),
+                                imageProvider = ImageProvider(R.drawable.new_markdown_24px),
+                                contentDescription = "new markdown",
                                 onClick = actionStartActivity<MainActivity>(
-                                    actionParametersOf(destinationKey to "note/")
+                                    actionParametersOf(destinationKey to "note?noteType=1")
+                                )
+                            )
+                            Spacer(modifier = GlanceModifier.width(12.dp))
+                            SquareIconButton(
+                                modifier = GlanceModifier.fillMaxHeight().defaultWeight(),
+                                imageProvider = ImageProvider(R.drawable.new_todo_24px),
+                                contentDescription = "new todo",
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=2")
+                                )
+                            )
+                            Spacer(modifier = GlanceModifier.width(12.dp))
+                            SquareIconButton(
+                                modifier = GlanceModifier.fillMaxHeight().defaultWeight(),
+                                imageProvider = ImageProvider(R.drawable.new_draw_24px),
+                                contentDescription = "new drawing",
+                                onClick = actionStartActivity<MainActivity>(
+                                    actionParametersOf(destinationKey to "note?noteType=3")
                                 )
                             )
                         }
@@ -255,15 +318,46 @@ class MyAppWidget : GlanceAppWidget() {
                                 ),
                                 maxLines = 1
                             )
-                        Text(
-                            modifier = GlanceModifier.fillMaxWidth(),
-                            text = it.content.splitPropertiesAndContent().second,
-                            style = TextStyle(
-                                color = GlanceTheme.colors.onSurface,
-                                fontSize = 13.sp
-                            ),
-                            maxLines = 3
-                        )
+
+                        if (it.noteType == NoteType.Drawing) {
+                            val context = LocalContext.current
+                            var bitmap by remember { mutableStateOf<Bitmap?>(null) }
+                            LaunchedEffect(it.id) {
+                                withContext(Dispatchers.IO) {
+                                    val noteDir = File(context.filesDir, it.id)
+                                    if (!noteDir.exists()) noteDir.mkdirs()
+                                    val imageFile = File(noteDir, "ink.png")
+                                    val request =
+                                        ImageRequest.Builder(context)
+                                            .data(imageFile)
+                                            .size(Dimension.Pixels(600), Dimension.Pixels(300))
+                                            .build()
+                                    bitmap =
+                                        when (val result = context.imageLoader.execute(request)) {
+                                            is ErrorResult -> null
+                                            is SuccessResult -> result.image.toBitmap()
+                                        }
+                                }
+                            }
+                            bitmap?.let { bm ->
+                                Image(
+                                    provider = ImageProvider(bm),
+                                    modifier = GlanceModifier.fillMaxWidth().height(80.dp),
+                                    contentScale = ContentScale.Crop,
+                                    contentDescription = null
+                                )
+                            }
+                        } else {
+                            Text(
+                                modifier = GlanceModifier.fillMaxWidth(),
+                                text = it.content.splitPropertiesAndContent().second,
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.onSurface,
+                                    fontSize = 13.sp
+                                ),
+                                maxLines = 3
+                            )
+                        }
                     }
                     Spacer(GlanceModifier.height(4.dp))
                 }
