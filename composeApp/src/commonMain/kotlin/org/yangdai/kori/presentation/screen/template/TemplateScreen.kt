@@ -297,7 +297,8 @@ fun TemplateScreen(
                         AdaptiveView(
                             modifier = Modifier.fillMaxHeight().weight(1f - editorWeight),
                             noteType = noteEditingState.noteType,
-                            contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
+                            html = html,
+                            rawText = viewModel.contentState.text.toString(),
                             scrollState = scrollState,
                             isSheetVisible = isSideSheetOpen,
                             printTrigger = printTrigger
@@ -329,7 +330,8 @@ fun TemplateScreen(
                                 AdaptiveView(
                                     modifier = Modifier.fillMaxSize(),
                                     noteType = noteEditingState.noteType,
-                                    contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
+                                    html = html,
+                                    rawText = viewModel.contentState.text.toString(),
                                     scrollState = scrollState,
                                     isSheetVisible = isSideSheetOpen,
                                     printTrigger = printTrigger

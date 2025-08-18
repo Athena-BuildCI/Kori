@@ -135,6 +135,7 @@ import org.yangdai.kori.presentation.component.dialog.DialogMaxWidth
 import org.yangdai.kori.presentation.component.dialog.ExportDialog
 import org.yangdai.kori.presentation.component.dialog.FoldersDialog
 import org.yangdai.kori.presentation.component.dialog.NoteTypeDialog
+import org.yangdai.kori.presentation.component.dialog.PhotosPickerDialog
 import org.yangdai.kori.presentation.component.dialog.ShareDialog
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorRow
@@ -149,6 +150,7 @@ import org.yangdai.kori.presentation.component.note.drawing.DrawState
 import org.yangdai.kori.presentation.component.note.drawing.InNoteDrawPreview
 import org.yangdai.kori.presentation.component.note.drawing.InkScreen
 import org.yangdai.kori.presentation.component.note.drawing.rememberDrawState
+import org.yangdai.kori.presentation.component.note.addImageLinks
 import org.yangdai.kori.presentation.component.note.plaintext.PlainTextEditor
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.component.note.template.TemplateProcessor
@@ -200,7 +202,6 @@ fun NoteScreen(
     }
 
     var showFolderDialog by rememberSaveable { mutableStateOf(false) }
-    var showTemplatesBottomSheet by rememberSaveable { mutableStateOf(false) }
     var folderName by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(noteEditingState.folderId, foldersWithNoteCounts) {
         withContext(Dispatchers.Default) {
@@ -225,6 +226,8 @@ fun NoteScreen(
     var showNoteTypeDialog by rememberSaveable { mutableStateOf(false) }
     var showShareDialog by rememberSaveable { mutableStateOf(false) }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
+    var showTemplatesBottomSheet by rememberSaveable { mutableStateOf(false) }
+    var showImagePicker by rememberSaveable { mutableStateOf(false) }
     val printTrigger = remember { mutableStateOf(false) }
     LaunchedEffect(isReadView) {
         focusManager.clearFocus()
@@ -410,7 +413,8 @@ fun NoteScreen(
                         AdaptiveView(
                             modifier = Modifier.fillMaxHeight().weight(1f - editorWeight),
                             noteType = noteEditingState.noteType,
-                            contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
+                            html = html,
+                            rawText = viewModel.contentState.text.toString(),
                             scrollState = scrollState,
                             isSheetVisible = isSideSheetOpen || showFolderDialog || showTemplatesBottomSheet,
                             printTrigger = printTrigger
@@ -442,7 +446,8 @@ fun NoteScreen(
                                 AdaptiveView(
                                     modifier = Modifier.fillMaxSize(),
                                     noteType = noteEditingState.noteType,
-                                    contentString = if (noteEditingState.noteType == NoteType.MARKDOWN) html else viewModel.contentState.text.toString(),
+                                    html = html,
+                                    rawText = viewModel.contentState.text.toString(),
                                     scrollState = scrollState,
                                     isSheetVisible = isSideSheetOpen || showFolderDialog || showTemplatesBottomSheet,
                                     printTrigger = printTrigger
@@ -462,6 +467,10 @@ fun NoteScreen(
                 when (action) {
                     EditorRowAction.Templates -> {
                         showTemplatesBottomSheet = true
+                    }
+
+                    EditorRowAction.Images -> {
+                        showImagePicker = true
                     }
                 }
             }
@@ -570,6 +579,13 @@ fun NoteScreen(
                     }
                 }
             }
+        }
+    }
+
+    if (showImagePicker) {
+        PhotosPickerDialog(noteEditingState.id) {
+            viewModel.contentState.edit { addImageLinks(it) }
+            showImagePicker = false
         }
     }
 
