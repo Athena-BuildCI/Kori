@@ -97,9 +97,9 @@ val SampleMarkdownNote = """
 
     ***Bold and italic*** or ___also bold and italic___
 
-    <del>Strikethrough</del> or ~~also Strikethrough~~
+    ~~Strikethrough~~ or <del>also strikethrough</del>
 
-    <ins>Underline</ins> and <mark>Highlighted text</mark>
+    <ins>Underline</ins> and <mark>Highlight</mark>
 
     ## Lists
 
@@ -131,7 +131,7 @@ val SampleMarkdownNote = """
 
     ## Links
     
-    [OpenNote](https://github.com/YangDai2003/OpenNote-Compose)
+    [Kori](https://github.com/YangDai2003/Kori)
     
     ## Images
 
@@ -228,8 +228,8 @@ val SampleMarkdownNote = """
 
     ## Tables
 
-    | Header 1 | Header 2 | Header 3 |
-    |-----------|------------|-----------|
+    |Header 1|Header 2|Header 3|
+    |--------|--------|--------|
     | Cell 1 | Cell 2 | Cell 3 |
     | Cell 4 | Cell 5 | Cell 6 |
     | Cell 7 | Cell 8 | Cell 9 |
@@ -237,9 +237,9 @@ val SampleMarkdownNote = """
     ### Table Alignment
 
     | Left-aligned | Center-aligned | Right-aligned |
-    |:--------------|:-----------------:|---------------:|
-    | Left         |     Center     |         Right |
-    | Left         |     Center     |         Right |
+    |:------|:--------:|-------:|
+    | Left  |  Center  |  Right |
+    | Left  |  Center  |  Right |
 
     ## Horizontal Rule
 
