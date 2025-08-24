@@ -14,7 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -56,17 +55,17 @@ import kotlinx.datetime.todayIn
 import org.jetbrains.compose.resources.stringResource
 import org.yangdai.kori.presentation.component.note.CustomTextField
 import org.yangdai.kori.presentation.component.setting.DetailPaneItem
-import org.yangdai.kori.presentation.screen.settings.SettingsViewModel
+import org.yangdai.kori.presentation.screen.main.MainViewModel
 import org.yangdai.kori.presentation.util.Constants
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 
 @OptIn(FormatStringsInDatetimeFormats::class, ExperimentalTime::class)
 @Composable
-fun TemplatePane(viewModel: SettingsViewModel) {
+fun TemplatePane(mainViewModel: MainViewModel) {
 
     val uriHandler = LocalUriHandler.current
-    val templatePaneState by viewModel.templatePaneState.collectAsStateWithLifecycle()
+    val templatePaneState by mainViewModel.templatePaneState.collectAsStateWithLifecycle()
 
     var currentDateFormatter by remember { mutableStateOf("") }
     var currentTimeFormatter by remember { mutableStateOf("") }
@@ -148,7 +147,7 @@ fun TemplatePane(viewModel: SettingsViewModel) {
                     value = currentDateFormatter,
                     onValueChange = {
                         currentDateFormatter = it
-                        viewModel.putPreferenceValue(
+                        mainViewModel.putPreferenceValue(
                             Constants.Preferences.DATE_FORMATTER, it
                         )
                     },
@@ -195,7 +194,7 @@ fun TemplatePane(viewModel: SettingsViewModel) {
                     value = currentTimeFormatter,
                     onValueChange = {
                         currentTimeFormatter = it
-                        viewModel.putPreferenceValue(
+                        mainViewModel.putPreferenceValue(
                             Constants.Preferences.TIME_FORMATTER, it
                         )
                     },
@@ -210,12 +209,7 @@ fun TemplatePane(viewModel: SettingsViewModel) {
 
         DetailPaneItem(
             title = stringResource(Res.string.explore_and_share_community_note_templates),
-            trailingContent = {
-                Icon(
-                    Icons.AutoMirrored.Outlined.OpenInNew,
-                    contentDescription = null
-                )
-            },
+            icon = Icons.AutoMirrored.Outlined.OpenInNew,
             onClick = {
                 uriHandler.openUri("https://github.com/YangDai2003/OpenNote-Compose/discussions/categories/community-templates")
             }

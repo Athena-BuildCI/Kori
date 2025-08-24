@@ -8,9 +8,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.CleaningServices
-import androidx.compose.material.icons.outlined.FileDownload
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -18,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,34 +28,33 @@ import kfile.PlatformFilesPicker
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.backup
 import kori.composeapp.generated.resources.backup_description
+import kori.composeapp.generated.resources.backup_json_24px
 import kori.composeapp.generated.resources.import_files
 import kori.composeapp.generated.resources.import_files_description
+import kori.composeapp.generated.resources.import_text_files_24px
 import kori.composeapp.generated.resources.reset_database
 import kori.composeapp.generated.resources.reset_database_description
 import kori.composeapp.generated.resources.reset_database_warning
 import kori.composeapp.generated.resources.restore_description
 import kori.composeapp.generated.resources.restore_from_backup
+import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
-import org.koin.compose.viewmodel.koinViewModel
 import org.yangdai.kori.presentation.component.dialog.FoldersDialog
-import org.yangdai.kori.presentation.component.dialog.ProgressDialog
 import org.yangdai.kori.presentation.component.dialog.WarningDialog
 import org.yangdai.kori.presentation.component.setting.DetailPaneItem
-import org.yangdai.kori.presentation.screen.settings.DataViewModel
+import org.yangdai.kori.presentation.screen.main.MainViewModel
 
 @Composable
-fun DataPane(viewModel: DataViewModel = koinViewModel()) {
+fun DataPane(mainViewModel: MainViewModel) {
 
-    val foldersWithNoteCounts by viewModel.foldersWithNoteCounts.collectAsStateWithLifecycle()
-    val dataActionState by viewModel.dataActionState.collectAsStateWithLifecycle()
-
+    val foldersWithNoteCounts by mainViewModel.foldersWithNoteCounts.collectAsStateWithLifecycle()
     var showWarningDialog by remember { mutableStateOf(false) }
     var showFolderDialog by remember { mutableStateOf(false) }
-    var showImportDialog by remember { mutableStateOf(false) }
-    var selectFolderId by remember { mutableStateOf<String?>(null) }
-    var showSaveJsonDialog by remember { mutableStateOf(false) }
-    var showPickJsonDialog by remember { mutableStateOf(false) }
-    var json by remember { mutableStateOf<String?>(null) }
+    var launchFilesPicker by remember { mutableStateOf(false) }
+    var launchJsonExporter by remember { mutableStateOf(false) }
+    var launchJsonPicker by remember { mutableStateOf(false) }
+    var selectFolderId by rememberSaveable { mutableStateOf<String?>(null) }
+    var json by rememberSaveable { mutableStateOf<String?>(null) }
 
     Column(
         Modifier
@@ -70,7 +68,7 @@ fun DataPane(viewModel: DataViewModel = koinViewModel()) {
             modifier = Modifier.padding(bottom = 8.dp),
             title = stringResource(Res.string.import_files),
             description = stringResource(Res.string.import_files_description),
-            icon = Icons.Outlined.FileDownload,
+            icon = painterResource(Res.drawable.import_text_files_24px),
             onClick = { showFolderDialog = true }
         )
 
@@ -78,12 +76,11 @@ fun DataPane(viewModel: DataViewModel = koinViewModel()) {
             modifier = Modifier.padding(bottom = 8.dp),
             title = stringResource(Res.string.backup),
             description = stringResource(Res.string.backup_description),
-            icon = Icons.Outlined.Backup,
+            icon = painterResource(Res.drawable.backup_json_24px),
             onClick = {
-                viewModel.createBackupJson {
+                mainViewModel.createBackupJson {
                     json = it
-                    if (json != null)
-                        showSaveJsonDialog = true
+                    launchJsonExporter = true
                 }
             }
         )
@@ -93,7 +90,7 @@ fun DataPane(viewModel: DataViewModel = koinViewModel()) {
             title = stringResource(Res.string.restore_from_backup),
             description = stringResource(Res.string.restore_description),
             icon = Icons.Outlined.Restore,
-            onClick = { showPickJsonDialog = true }
+            onClick = { launchJsonPicker = true }
         )
 
         DetailPaneItem(
@@ -119,38 +116,28 @@ fun DataPane(viewModel: DataViewModel = koinViewModel()) {
             onSelect = { folderId ->
                 selectFolderId = folderId
                 showFolderDialog = false
-                showImportDialog = true
+                launchFilesPicker = true
             }
         )
 
-    if (showImportDialog)
-        PlatformFilesPicker {
-            showImportDialog = false
-            if (it.isNotEmpty())
-                viewModel.importFiles(it, selectFolderId)
-        }
+    PlatformFilesPicker(launchFilesPicker) {
+        if (it.isNotEmpty()) mainViewModel.importFiles(it, selectFolderId)
+        launchFilesPicker = false
+    }
 
-    if (showSaveJsonDialog)
-        JsonExporter(json!!) {
-            showSaveJsonDialog = false
-        }
+    JsonExporter(launchJsonExporter, json) {
+        launchJsonExporter = false
+    }
 
-    if (showPickJsonDialog)
-        JsonPicker { json ->
-            showPickJsonDialog = false
-            if (json != null) {
-                viewModel.restoreFromJson(json)
-            }
-        }
+    JsonPicker(launchJsonPicker) { json ->
+        if (json != null) mainViewModel.restoreFromJson(json)
+        launchJsonPicker = false
+    }
 
     if (showWarningDialog)
         WarningDialog(
             message = stringResource(Res.string.reset_database_warning),
             onDismissRequest = { showWarningDialog = false },
-            onConfirm = { viewModel.resetDatabase() }
+            onConfirm = { mainViewModel.resetDatabase() }
         )
-
-    ProgressDialog(dataActionState) {
-        viewModel.cancelDataAction()
-    }
 }

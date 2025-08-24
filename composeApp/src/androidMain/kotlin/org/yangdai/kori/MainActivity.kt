@@ -18,10 +18,11 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.koin.compose.viewmodel.koinViewModel
+import org.yangdai.kori.presentation.component.dialog.ProgressDialog
 import org.yangdai.kori.presentation.navigation.AppNavHost
 import org.yangdai.kori.presentation.screen.LoginOverlayScreen
+import org.yangdai.kori.presentation.screen.main.MainViewModel
 import org.yangdai.kori.presentation.screen.settings.AppTheme
-import org.yangdai.kori.presentation.screen.settings.SettingsViewModel
 import org.yangdai.kori.presentation.theme.KoriTheme
 import org.yangdai.kori.presentation.util.AppLockManager
 import org.yangdai.kori.presentation.util.Constants
@@ -32,9 +33,10 @@ class MainActivity : AppCompatActivity() {
         window.isNavigationBarContrastEnforced = false
         super.onCreate(savedInstanceState)
         setContent {
-            val settingsViewModel: SettingsViewModel = koinViewModel<SettingsViewModel>()
-            val stylePaneState by settingsViewModel.stylePaneState.collectAsStateWithLifecycle()
-            val securityPaneState by settingsViewModel.securityPaneState.collectAsStateWithLifecycle()
+            val mainViewModel: MainViewModel = koinViewModel<MainViewModel>()
+            val stylePaneState by mainViewModel.stylePaneState.collectAsStateWithLifecycle()
+            val securityPaneState by mainViewModel.securityPaneState.collectAsStateWithLifecycle()
+            val dataActionState by mainViewModel.dataActionState.collectAsStateWithLifecycle()
             val isUnlocked by AppLockManager.isUnlocked.collectAsStateWithLifecycle()
 
             LaunchedEffect(securityPaneState.isScreenProtected) {
@@ -88,25 +90,29 @@ class MainActivity : AppCompatActivity() {
                     AppNavHost(
                         modifier = Modifier
                             .blur(blur)
-                            .then(semanticsModifier)
+                            .then(semanticsModifier),
+                        mainViewModel = mainViewModel
                     )
+                    ProgressDialog(dataActionState) {
+                        mainViewModel.cancelDataAction()
+                    }
                     if (showPassScreen) {
                         LoginOverlayScreen(
                             storedPassword = securityPaneState.password,
                             biometricAuthEnabled = securityPaneState.isBiometricEnabled,
                             isCreatingPassword = securityPaneState.isCreatingPass,
                             onCreatingCanceled = {
-                                settingsViewModel.putPreferenceValue(
+                                mainViewModel.putPreferenceValue(
                                     Constants.Preferences.IS_CREATING_PASSWORD,
                                     false
                                 )
                             },
                             onPassCreated = {
-                                settingsViewModel.putPreferenceValue(
+                                mainViewModel.putPreferenceValue(
                                     Constants.Preferences.PASSWORD,
                                     it
                                 )
-                                settingsViewModel.putPreferenceValue(
+                                mainViewModel.putPreferenceValue(
                                     Constants.Preferences.IS_CREATING_PASSWORD,
                                     false
                                 )
@@ -116,7 +122,7 @@ class MainActivity : AppCompatActivity() {
                                 AppLockManager.unlock()
                             },
                             onAuthenticationNotEnrolled = {
-                                settingsViewModel.putPreferenceValue(
+                                mainViewModel.putPreferenceValue(
                                     Constants.Preferences.IS_BIOMETRIC_ENABLED,
                                     false
                                 )

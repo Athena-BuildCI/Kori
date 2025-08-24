@@ -43,11 +43,12 @@ import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
 import org.yangdai.kori.data.di.KoinInitializer
 import org.yangdai.kori.data.local.entity.NoteType
+import org.yangdai.kori.presentation.component.dialog.ProgressDialog
 import org.yangdai.kori.presentation.component.login.NumberLockScreen
 import org.yangdai.kori.presentation.navigation.AppNavHost
 import org.yangdai.kori.presentation.navigation.Screen
+import org.yangdai.kori.presentation.screen.main.MainViewModel
 import org.yangdai.kori.presentation.screen.settings.AppTheme
-import org.yangdai.kori.presentation.screen.settings.SettingsViewModel
 import org.yangdai.kori.presentation.theme.KoriTheme
 import org.yangdai.kori.presentation.util.AppLockManager
 import org.yangdai.kori.presentation.util.Constants
@@ -79,9 +80,10 @@ fun main() {
             icon = painterResource(Res.drawable.icon)
         ) {
             window.minimumSize = Dimension(400, 600)
-            val settingsViewModel: SettingsViewModel = koinViewModel<SettingsViewModel>()
-            val stylePaneState by settingsViewModel.stylePaneState.collectAsStateWithLifecycle()
-            val securityPaneState by settingsViewModel.securityPaneState.collectAsStateWithLifecycle()
+            val mainViewModel: MainViewModel = koinViewModel<MainViewModel>()
+            val stylePaneState by mainViewModel.stylePaneState.collectAsStateWithLifecycle()
+            val securityPaneState by mainViewModel.securityPaneState.collectAsStateWithLifecycle()
+            val dataActionState by mainViewModel.dataActionState.collectAsStateWithLifecycle()
             val isUnlocked by AppLockManager.isUnlocked.collectAsStateWithLifecycle()
             val isSystemInDarkTheme = isSystemInDarkTheme()
 
@@ -120,8 +122,12 @@ fun main() {
                             modifier = Modifier
                                 .blur(blur)
                                 .then(semanticsModifier),
+                            mainViewModel = mainViewModel,
                             navHostController = navHostController
                         )
+                        ProgressDialog(dataActionState) {
+                            mainViewModel.cancelDataAction()
+                        }
                         if (showPassScreen) {
                             NumberLockScreen(
                                 modifier = Modifier.background(
@@ -130,17 +136,17 @@ fun main() {
                                 storedPassword = securityPaneState.password,
                                 isCreatingPassword = securityPaneState.isCreatingPass,
                                 onCreatingCanceled = {
-                                    settingsViewModel.putPreferenceValue(
+                                    mainViewModel.putPreferenceValue(
                                         Constants.Preferences.IS_CREATING_PASSWORD,
                                         false
                                     )
                                 },
                                 onPassCreated = {
-                                    settingsViewModel.putPreferenceValue(
+                                    mainViewModel.putPreferenceValue(
                                         Constants.Preferences.PASSWORD,
                                         it
                                     )
-                                    settingsViewModel.putPreferenceValue(
+                                    mainViewModel.putPreferenceValue(
                                         Constants.Preferences.IS_CREATING_PASSWORD,
                                         false
                                     )

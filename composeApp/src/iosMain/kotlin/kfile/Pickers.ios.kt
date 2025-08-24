@@ -1,6 +1,7 @@
 package kfile
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.uikit.LocalUIViewController
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -80,8 +81,7 @@ actual fun NoteExporter(
         ExportType.MARKDOWN -> ".md"
         ExportType.HTML -> ".html"
     }
-    val fileName =
-        noteEntity.title.trim().replace(" ", "_").replace("/", "_").replace(":", "_") + extension
+    val fileName = noteEntity.title.normalizeFileName() + extension
     val fileContent = if (exportType == ExportType.HTML) html else noteEntity.content
 
     val currentUIViewController = LocalUIViewController.current
@@ -130,7 +130,7 @@ actual fun NoteExporter(
 }
 
 @Composable
-actual fun PlatformFilesPicker(onFilesSelected: (List<PlatformFile>) -> Unit) {
+actual fun PlatformFilesPicker(launch: Boolean, onFilesSelected: (List<PlatformFile>) -> Unit) {
     val currentUIViewController = LocalUIViewController.current
 
     val delegate = remember {
@@ -167,30 +167,26 @@ actual fun PlatformFilesPicker(onFilesSelected: (List<PlatformFile>) -> Unit) {
         }
     }
 
-    currentUIViewController.presentViewController(
-        documentPicker,
-        animated = true,
-        completion = null
-    )
+    LaunchedEffect(launch) {
+        if (!launch) return@LaunchedEffect
+        currentUIViewController.presentViewController(
+            documentPicker,
+            animated = true,
+            completion = null
+        )
+    }
 }
 
 @Suppress("CAST_NEVER_SUCCEEDS")
 @OptIn(ExperimentalForeignApi::class, ExperimentalTime::class)
 @Composable
-actual fun JsonExporter(json: String, onJsonSaved: (Boolean) -> Unit) {
+actual fun JsonExporter(launch: Boolean, json: String?, onJsonSaved: (Boolean) -> Unit) {
     val currentUIViewController = LocalUIViewController.current
     val tempDir = NSTemporaryDirectory()
     val tempDirURL = NSURL.fileURLWithPath(tempDir, isDirectory = true)
     val fileName = "kori_backup_${Clock.System.now().toEpochMilliseconds()}.json"
     val fileURL = tempDirURL.URLByAppendingPathComponent(fileName) ?: return
-    val nsString = json as NSString
-    val success = nsString.writeToURL(
-        url = fileURL,
-        atomically = true,
-        encoding = NSUTF8StringEncoding,
-        error = null
-    )
-    if (!success) return
+
     val delegate = remember {
         object : NSObject(), UIDocumentPickerDelegateProtocol {
             override fun documentPicker(
@@ -207,25 +203,40 @@ actual fun JsonExporter(json: String, onJsonSaved: (Boolean) -> Unit) {
             }
         }
     }
-    val documentPicker = remember {
-        UIDocumentPickerViewController(
-            forExportingURLs = listOf(fileURL),
-            asCopy = true
-        ).apply {
-            this.delegate = delegate
-            this.allowsMultipleSelection = false
+
+    LaunchedEffect(launch) {
+        if (!launch) return@LaunchedEffect
+        if (json != null) {
+            val nsString = json as NSString
+            val success = nsString.writeToURL(
+                url = fileURL,
+                atomically = true,
+                encoding = NSUTF8StringEncoding,
+                error = null
+            )
+            if (!success) {
+                onJsonSaved(false)
+                return@LaunchedEffect
+            }
+            val documentPicker = UIDocumentPickerViewController(
+                forExportingURLs = listOf(fileURL),
+                asCopy = true
+            ).apply {
+                this.delegate = delegate
+                this.allowsMultipleSelection = false
+            }
+            currentUIViewController.presentViewController(
+                documentPicker,
+                animated = true,
+                completion = null
+            )
         }
     }
-    currentUIViewController.presentViewController(
-        documentPicker,
-        animated = true,
-        completion = null
-    )
 }
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-actual fun JsonPicker(onJsonPicked: (String?) -> Unit) {
+actual fun JsonPicker(launch: Boolean, onJsonPicked: (String?) -> Unit) {
     val currentUIViewController = LocalUIViewController.current
 
     val delegate = remember {
@@ -258,11 +269,14 @@ actual fun JsonPicker(onJsonPicked: (String?) -> Unit) {
         }
     }
 
-    currentUIViewController.presentViewController(
-        documentPicker,
-        animated = true,
-        completion = null
-    )
+    LaunchedEffect(launch) {
+        if (!launch) return@LaunchedEffect
+        currentUIViewController.presentViewController(
+            documentPicker,
+            animated = true,
+            completion = null
+        )
+    }
 }
 
 @OptIn(ExperimentalForeignApi::class, ExperimentalTime::class)
