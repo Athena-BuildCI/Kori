@@ -9,13 +9,15 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBackIosNew
@@ -48,9 +50,11 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.backhandler.PredictiveBackHandler
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalWindowInfo
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import kori.composeapp.generated.resources.Res
@@ -129,142 +133,161 @@ fun SettingsScreen(navigateUp: () -> Unit) {
     }
 
     val windowSizeClass: WindowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
-    val fraction = remember(windowSizeClass) {
+    val fillMaxWidthFraction = remember(windowSizeClass) {
         if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
             0.9f
         } else if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)) {
             0.95f
         } else 1f
     }
+    val fillMaxHeightFraction = remember(windowSizeClass) {
+        if (windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND)) {
+            0.9f
+        } else if (windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND)) {
+            0.95f
+        } else 1f
+    }
 
     val size = LocalWindowInfo.current.containerSize
-    AnimatedVisibility(
-        visible = isVisible,
-        enter = slideInVertically(initialOffsetY = { it }) + fadeIn() + scaleIn(initialScale = 0.9f),
-        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut() + scaleOut(targetScale = 0.9f)
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
-        Surface(
-            modifier = Modifier
-                .systemBarsPadding()
-                .fillMaxSize(fraction)
-                .padding(16.dp)
-                .graphicsLayer {
-                    val progress = backProgress.value
-                    translationY = progress * size.height * 0.5f
-                    scaleX = 1f - (progress * 0.1f)
-                    scaleY = 1f - (progress * 0.1f)
-                },
-            shape = dialogShape(),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            shadowElevation = 8.dp,
-            border = BorderStroke(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+        AnimatedVisibility(
+            visible = isVisible,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn() + scaleIn(initialScale = 0.9f),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut() + scaleOut(targetScale = 0.9f)
         ) {
-            Column {
-                Box(
-                    Modifier.fillMaxWidth().padding(2.dp).pointerInput(Unit) {
-                        detectVerticalDragGestures(
-                            onDragEnd = {
-                                coroutineScope.launch {
-                                    if (backProgress.value > 1f) {
-                                        triggerExit()
-                                    } else {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth(fillMaxWidthFraction)
+                    .fillMaxHeight(fillMaxHeightFraction)
+                    .systemBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .graphicsLayer {
+                        val progress = backProgress.value
+                        translationY = progress * size.height * 0.5f
+                        scaleX = 1f - (progress * 0.1f)
+                        scaleY = 1f - (progress * 0.1f)
+                    },
+                shape = dialogShape(),
+                color = Color.Transparent,
+                shadowElevation = 8.dp,
+                border = BorderStroke(
+                    width = 1.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+            ) {
+                Box(contentAlignment = Alignment.TopCenter) {
+                    ListDetailPaneScaffold(
+                        modifier = Modifier.fillMaxSize()
+                            .background(MaterialTheme.colorScheme.surfaceContainerLow),
+                        directive = navigator.scaffoldDirective,
+                        value = navigator.scaffoldValue,
+                        listPane = {
+                            AnimatedPane(Modifier.preferredWidth(320.dp)) {
+                                SettingsListPane(selectedItem) { itemId ->
+                                    coroutineScope.launch {
+                                        navigator.navigateTo(
+                                            ListDetailPaneScaffoldRole.Detail,
+                                            itemId
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        detailPane = {
+                            AnimatedPane {
+                                SettingsDetailPane(selectedItem, isExpanded)
+                            }
+                        }
+                    )
+                    Box(
+                        Modifier.fillMaxWidth().padding(2.dp).pointerInput(Unit) {
+                            detectVerticalDragGestures(
+                                onDragEnd = {
+                                    coroutineScope.launch {
+                                        if (backProgress.value > 1f) {
+                                            triggerExit()
+                                        } else {
+                                            backProgress.animateTo(0f)
+                                        }
+                                    }
+                                },
+                                onDragCancel = {
+                                    coroutineScope.launch {
                                         backProgress.animateTo(0f)
                                     }
                                 }
-                            },
-                            onDragCancel = {
+                            ) { _, dragAmount ->
                                 coroutineScope.launch {
-                                    backProgress.animateTo(0f)
+                                    // 根据 graphicsLayer 中的变换逻辑，反向计算出进度增量
+                                    // translationY = progress * size.height * 0.5f
+                                    // 因此，progress = translationY / (size.height * 0.5f)
+                                    // 进度增量 delta_progress = dragAmount / (size.height * 0.5f)
+                                    val progressDelta = dragAmount / (size.height * 0.5f)
+                                    // 将增量加到当前进度上，并确保进度不小于0（即不允许向上拖动使界面上移）
+                                    val newProgress =
+                                        (backProgress.value + progressDelta).coerceAtLeast(0f)
+                                    backProgress.snapTo(newProgress)
                                 }
-                            }
-                        ) { _, dragAmount ->
-                            coroutineScope.launch {
-                                // 根据 graphicsLayer 中的变换逻辑，反向计算出进度增量
-                                // translationY = progress * size.height * 0.5f
-                                // 因此，progress = translationY / (size.height * 0.5f)
-                                // 进度增量 delta_progress = dragAmount / (size.height * 0.5f)
-                                val progressDelta = dragAmount / (size.height * 0.5f)
-                                // 将增量加到当前进度上，并确保进度不小于0（即不允许向上拖动使界面上移）
-                                val newProgress =
-                                    (backProgress.value + progressDelta).coerceAtLeast(0f)
-                                backProgress.snapTo(newProgress)
                             }
                         }
-                    }
-                ) {
-                    if (navigator.canNavigateBack()) {
-                        IconButton(
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            shape = dialogShape(),
-                            onClick = {
-                                coroutineScope.launch {
-                                    navigator.navigateBack()
+                    ) {
+                        if (navigator.canNavigateBack()) {
+                            IconButton(
+                                modifier = Modifier.align(Alignment.CenterStart),
+                                shape = dialogShape(),
+                                onClick = {
+                                    coroutineScope.launch {
+                                        navigator.navigateBack()
+                                    }
                                 }
+                            ) {
+                                Icon(
+                                    imageVector = if (currentPlatformInfo.operatingSystem == OS.IOS || currentPlatformInfo.operatingSystem == OS.MACOS)
+                                        Icons.Default.ArrowBackIosNew
+                                    else Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = null
+                                )
                             }
+                        }
+                        if (isExpanded) {
+                            Text(
+                                modifier = Modifier.align(Alignment.CenterStart).width(320.dp),
+                                text = stringResource(Res.string.settings),
+                                style = MaterialTheme.typography.titleLargeEmphasized,
+                                textAlign = TextAlign.Center
+                            )
+                        } else {
+                            Text(
+                                modifier = Modifier.align(Alignment.Center),
+                                style = MaterialTheme.typography.titleLargeEmphasized,
+                                text = when (selectedItem) {
+                                    0 -> stringResource(Res.string.style)
+                                    1 -> stringResource(Res.string.editor)
+                                    2 -> stringResource(Res.string.card)
+                                    3 -> stringResource(Res.string.templates)
+                                    4 -> stringResource(Res.string.data)
+                                    5 -> stringResource(Res.string.security)
+                                    6 -> stringResource(Res.string.cowriter)
+                                    7 -> stringResource(Res.string.app_info)
+                                    else -> stringResource(Res.string.settings)
+                                }
+                            )
+                        }
+                        IconButton(
+                            modifier = Modifier.align(Alignment.CenterEnd),
+                            shape = dialogShape(),
+                            onClick = { triggerExit() }
                         ) {
                             Icon(
-                                imageVector = if (currentPlatformInfo.operatingSystem == OS.IOS || currentPlatformInfo.operatingSystem == OS.MACOS)
-                                    Icons.Default.ArrowBackIosNew
-                                else Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = Icons.Default.Close,
                                 contentDescription = null
                             )
                         }
                     }
-                    if (isExpanded) {
-                        Text(
-                            modifier = Modifier.align(Alignment.Center),
-                            text = stringResource(Res.string.settings),
-                            style = MaterialTheme.typography.titleLargeEmphasized
-                        )
-                    } else {
-                        Text(
-                            modifier = Modifier.align(Alignment.Center),
-                            style = MaterialTheme.typography.titleLargeEmphasized,
-                            text = when (selectedItem) {
-                                0 -> stringResource(Res.string.style)
-                                1 -> stringResource(Res.string.editor)
-                                2 -> stringResource(Res.string.card)
-                                3 -> stringResource(Res.string.templates)
-                                4 -> stringResource(Res.string.data)
-                                5 -> stringResource(Res.string.security)
-                                6 -> stringResource(Res.string.cowriter)
-                                7 -> stringResource(Res.string.app_info)
-                                else -> stringResource(Res.string.settings)
-                            }
-                        )
-                    }
-                    IconButton(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        shape = dialogShape(),
-                        onClick = { triggerExit() }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = null
-                        )
-                    }
                 }
-                ListDetailPaneScaffold(
-                    directive = navigator.scaffoldDirective,
-                    value = navigator.scaffoldValue,
-                    listPane = {
-                        AnimatedPane(Modifier.preferredWidth(320.dp)) {
-                            SettingsListPane(selectedItem) { itemId ->
-                                coroutineScope.launch {
-                                    navigator.navigateTo(
-                                        ListDetailPaneScaffoldRole.Detail,
-                                        itemId
-                                    )
-                                }
-                            }
-                        }
-                    },
-                    detailPane = {
-                        AnimatedPane {
-                            SettingsDetailPane(selectedItem, isExpanded)
-                        }
-                    },
-                )
             }
         }
     }
