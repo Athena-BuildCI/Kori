@@ -19,7 +19,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -31,16 +30,12 @@ fun ListPaneItem(
     title: String,
     description: String,
     icon: ImageVector,
-    colors: ListItemColors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    colors: ListItemColors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
     onClick: (() -> Unit)? = null
 ) = ListItem(
-    modifier = modifier.then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-    headlineContent = {
-        Text(
-            text = title,
-            maxLines = 1
-        )
-    },
+    modifier = modifier.clip(MaterialTheme.shapes.extraSmall)
+        .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+    headlineContent = { Text(text = title, maxLines = 1) },
     supportingContent = {
         Text(
             modifier = Modifier.basicMarquee(),
@@ -50,9 +45,7 @@ fun ListPaneItem(
     },
     leadingContent = {
         Box(contentAlignment = Alignment.Center) {
-            val circleSize by animateDpAsState(
-                targetValue = if (isSelected) 40.dp else 0.dp,
-            )
+            val circleSize by animateDpAsState(targetValue = if (isSelected) 40.dp else 0.dp)
             Box(
                 modifier = Modifier
                     .size(circleSize)
@@ -84,13 +77,7 @@ fun DetailPaneItem(
 ) = ListItem(
     modifier = modifier.clip(MaterialTheme.shapes.large)
         .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-    headlineContent = {
-        Text(
-            modifier = Modifier.basicMarquee(),
-            text = title,
-            maxLines = 1
-        )
-    },
+    headlineContent = { Text(title) },
     supportingContent = description?.let { { Text(description) } },
     leadingContent = icon?.let {
         {
@@ -116,13 +103,7 @@ fun DetailPaneItem(
 ) = ListItem(
     modifier = modifier.clip(MaterialTheme.shapes.large)
         .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
-    headlineContent = {
-        Text(
-            modifier = Modifier.basicMarquee(),
-            text = title,
-            maxLines = 1
-        )
-    },
+    headlineContent = { Text(title) },
     supportingContent = description?.let { { Text(description) } },
     leadingContent = icon?.let {
         {

@@ -1,6 +1,7 @@
 package org.yangdai.kori.presentation.component.main
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -194,7 +195,7 @@ fun MainScreenContent(
             },
             placeholder = { Text(stringResource(Res.string.search)) },
             leadingIcon = {
-                AnimatedContent(isLargeScreen || searchBarState.currentValue == SearchBarValue.Expanded) { showSearchIcon ->
+                Crossfade(isLargeScreen || searchBarState.currentValue == SearchBarValue.Expanded) { showSearchIcon ->
                     if (showSearchIcon)
                         IconButton(
                             colors = IconButtonDefaults.iconButtonVibrantColors(),
@@ -212,7 +213,7 @@ fun MainScreenContent(
                 }
             },
             trailingIcon = {
-                AnimatedContent(searchBarState.currentValue == SearchBarValue.Expanded) { showClearIcon ->
+                Crossfade(searchBarState.currentValue == SearchBarValue.Expanded) { showClearIcon ->
                     if (showClearIcon)
                         IconButton(
                             onClick = {
@@ -415,7 +416,7 @@ fun MainScreenContent(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 maxLines = 3
                             ) {
-                                searchHistorySet.reversed().forEach { it ->
+                                searchHistorySet.forEach { it ->
                                     SuggestionChip(
                                         modifier = Modifier.defaultMinSize(48.dp),
                                         onClick = { textFieldState.setTextAndPlaceCursorAtEnd(it) },
@@ -565,7 +566,7 @@ fun MainScreenContent(
                 top = 16.dp,
                 start = 16.dp,
                 end = 16.dp,
-                bottom = innerPadding.calculateBottomPadding()
+                bottom = innerPadding.calculateBottomPadding() + 16.dp
             )
         }
         val noteItemProperties = remember(cardPaneState, viewModel.noteSortType) {
@@ -584,7 +585,7 @@ fun MainScreenContent(
                     .padding(top = innerPadding.calculateTopPadding())
                     .fillMaxSize()
                     .background(
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        color = MaterialTheme.colorScheme.surface,
                         shape = if (isLargeScreen) RoundedCornerShape(topStart = 12.dp)
                         else RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
                     ),

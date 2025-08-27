@@ -96,13 +96,13 @@
     <string name="reading_view">Lese-Ansicht</string>
     <string name="line_numbers">Zeilennummern</string>
     <string name="lint">Lint</string>
-    <string name="lint_description">Wenn aktiviert, werden im Standard Modus das Markdown-Textformat und die Syntax auf die Einhaltung der Spezifikation überprüft und Fehler mit roten Wellenlinien markiert.</string>
+    <string name="lint_description">Wenn aktiviert, werden das Markdown-Textformat und die Syntax auf die Einhaltung der Spezifikation überprüft und Fehler mit roten Wellenlinien markiert.</string>
 
     <string name="date_format">Datumsformat</string>
     <string name="time_format">Zeitformat</string>
     <string name="date_in_the_template_file_will_be_replaced_with_this_value">{{date}} in der Vorlagendatei wird durch diesen Wert ersetzt.\n</string>
     <string name="you_can_also_use_date_yyyy_mm_dd_to_override_the_format_once">Sie können auch {{date:yyyy-MM-dd}} verwenden, um das Format einmalig zu überschreiben.\n</string>
-    <string name="for_more_syntax_refer_to">"Weitere Syntax finden Sie unter "</string>
+    <string name="for_more_syntax_refer_to">Weitere Syntax finden Sie unter </string>
     <string name="format_reference">Formatreferenz</string>
     <string name="your_current_syntax_looks_like_this">\nIhre aktuelle Syntax sieht so aus: %1$s</string>
     <string name="time_in_the_template_file_will_be_replaced_with_this_value">{{time}} in der Vorlagendatei wird durch diesen Wert ersetzt.\n</string>
@@ -132,10 +132,10 @@
     <string name="make_list">Liste aufstellen</string>
     <string name="make_table">Tabelle aufstellen</string>
 
-    <string name="share_note_as">Notiz teilen als</string>
+    <string name="share_as">Teilen als</string>
     <string name="file">Datei</string>
     <string name="text">Text</string>
-    <string name="export_as">Notiz exportieren als</string>
+    <string name="export_as">Exportieren als</string>
     <string name="data">Daten</string>
     <string name="import_files">Textdateien importieren</string>
     <string name="import_files_description">Importieren Sie mehrere Textdateien. Der Dateiname wird als Titel verwendet und der Notiztyp wird automatisch erkannt.</string>

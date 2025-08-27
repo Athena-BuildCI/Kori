@@ -1,7 +1,6 @@
 package org.yangdai.kori.presentation.component.setting.detail
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,27 +68,16 @@ fun EditorPane(mainViewModel: MainViewModel) {
                         contentDescription = null
                     )
                 },
-                headlineContent = {
-                    Text(
-                        modifier = Modifier.basicMarquee(),
-                        text = stringResource(Res.string.default_view),
-                        maxLines = 1
-                    )
-                },
-                supportingContent = {
-                    Text(stringResource(Res.string.default_view_for_note))
-                }
+                headlineContent = { Text(stringResource(Res.string.default_view)) },
+                supportingContent = { Text(stringResource(Res.string.default_view_for_note)) }
             )
-
-            val viewOptions =
-                listOf(
-                    stringResource(Res.string.editing_view),
-                    stringResource(Res.string.reading_view)
-                )
 
             SegmentedControl(
                 modifier = Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp),
-                segments = viewOptions,
+                segments = listOf(
+                    stringResource(Res.string.editing_view),
+                    stringResource(Res.string.reading_view)
+                ),
                 selectedSegmentIndex = if (editorPaneState.isDefaultReadingView) 1 else 0,
                 onSegmentSelected = { index ->
                     hapticFeedback.performHapticFeedback(HapticFeedbackType.SegmentTick)
