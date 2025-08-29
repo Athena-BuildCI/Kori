@@ -61,7 +61,6 @@ kotlin {
             implementation(libs.androidx.biometric)
             implementation(libs.androidx.documentfile)
             implementation(libs.androidx.browser)
-            implementation(libs.ktor.client.okhttp)
             implementation(libs.androidx.glance)
             implementation(libs.androidx.glance.appwidget)
             implementation(libs.androidx.webkit)
@@ -95,19 +94,14 @@ kotlin {
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.koin.compose.viewmodel.navigation)
 
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.serialization.kotlinx.json)
-            implementation(libs.ktor.client.content.negotiation)
-
             implementation(libs.coil.compose)
+            implementation(libs.koog.agents)
         }
         iosMain.dependencies {
-            implementation(libs.ktor.client.darwin)
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
-            implementation(libs.ktor.client.okhttp)
             val javafxVersion = "21.0.8"
             //noinspection UseTomlInstead,NewerVersionAvailable
             implementation("org.openjfx:javafx-base:$javafxVersion:$platform")
@@ -138,7 +132,18 @@ android {
     }
     splits {
         abi {
-            isEnable = true
+            // Detect app bundle and conditionally disable split abi
+            // This is needed due to a "Sequence contains more than one matching element" error
+            // present since AGP 8.9.0, for more info see:
+            // https://issuetracker.google.com/issues/402800800
+
+            // AppBundle tasks usually contain "bundle" in their name
+            val isBuildingBundle =
+                //noinspection WrongGradleMethod
+                gradle.startParameter.taskNames.any { it.lowercase().contains("bundle") }
+
+            // Disable when building appBundle
+            isEnable = !isBuildingBundle
             reset()
             include("armeabi-v7a", "arm64-v8a")
             isUniversalApk = true
@@ -152,6 +157,33 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "META-INF/INDEX.LIST"
+            /*
+            6 files found with path 'META-INF/INDEX.LIST' from inputs:
+ - io.netty:netty-handler:4.1.118.Final/netty-handler-4.1.118.Final.jar
+ - io.netty:netty-transport-native-unix-common:4.1.118.Final/netty-transport-native-unix-common-4.1.118.Final.jar
+ - io.netty:netty-codec:4.1.118.Final/netty-codec-4.1.118.Final.jar
+ - io.netty:netty-transport:4.1.118.Final/netty-transport-4.1.118.Final.jar
+ - io.netty:netty-resolver:4.1.118.Final/netty-resolver-4.1.118.Final.jar
+ - io.netty:netty-buffer:4.1.118.Final/netty-buffer-4.1.118.Final.jar
+Adding a packaging block may help, please refer to
+https://developer.android.com/reference/tools/gradle-api/com/android/build/api/dsl/Packaging
+for more information
+             */
+            excludes += "META-INF/io.netty.versions.properties"
+            /*
+            7 files found with path 'META-INF/io.netty.versions.properties' from inputs:
+ - io.netty:netty-handler:4.1.118.Final/netty-handler-4.1.118.Final.jar
+ - io.netty:netty-transport-native-unix-common:4.1.118.Final/netty-transport-native-unix-common-4.1.118.Final.jar
+ - io.netty:netty-codec:4.1.118.Final/netty-codec-4.1.118.Final.jar
+ - io.netty:netty-transport:4.1.118.Final/netty-transport-4.1.118.Final.jar
+ - io.netty:netty-resolver:4.1.118.Final/netty-resolver-4.1.118.Final.jar
+ - io.netty:netty-buffer:4.1.118.Final/netty-buffer-4.1.118.Final.jar
+ - io.netty:netty-common:4.1.118.Final/netty-common-4.1.118.Final.jar
+Adding a packaging block may help, please refer to
+https://developer.android.com/reference/tools/gradle-api/com/android/build/api/dsl/Packaging
+for more information
+             */
         }
     }
     buildTypes {
