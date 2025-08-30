@@ -9,17 +9,20 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.GeneratingTokens
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
@@ -51,6 +54,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
@@ -63,7 +67,7 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import knet.ai.AI
-import knet.ai.TestConnectionResult
+import knet.ai.GenerationResult
 import knet.ai.providers.Anthropic
 import knet.ai.providers.DeepSeek
 import knet.ai.providers.Gemini
@@ -76,6 +80,7 @@ import kori.composeapp.generated.resources.cowriter_description
 import kori.composeapp.generated.resources.key
 import kori.composeapp.generated.resources.model
 import kori.composeapp.generated.resources.reset
+import kori.composeapp.generated.resources.set_as_default
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.launch
@@ -106,7 +111,7 @@ fun AiPane(mainViewModel: MainViewModel) {
             title = stringResource(Res.string.cowriter),
             description = stringResource(Res.string.cowriter_description),
             icon = Icons.Outlined.GeneratingTokens,
-            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
             trailingContent = {
                 Switch(
                     checked = aiPaneState.isAiEnabled,
@@ -138,13 +143,25 @@ fun AiPane(mainViewModel: MainViewModel) {
                 ) {
                     AI.providers.entries.forEachIndexed { i, item ->
                         Tab(
+                            modifier = Modifier.clip(MaterialTheme.shapes.large),
                             selected = i == pagerState.currentPage,
                             onClick = {
                                 scope.launch {
                                     pagerState.animateScrollToPage(i)
                                 }
                             },
-                            text = { Text(item.value.display) }
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    if (aiPaneState.llmProvider == item.value)
+                                        Icon(
+                                            modifier = Modifier.padding(end = 4.dp).size(16.dp),
+                                            imageVector = Icons.Default.Favorite,
+                                            tint = MaterialTheme.colorScheme.tertiary,
+                                            contentDescription = null
+                                        )
+                                    Text(item.value.display)
+                                }
+                            }
                         )
                     }
                 }
@@ -158,27 +175,27 @@ fun AiPane(mainViewModel: MainViewModel) {
                 ) { page ->
                     when (page) {
                         AI.providers.keys.indexOf(LLMProvider.Google.id) -> {
-                            GeminiSettings(mainViewModel)
+                            GeminiSettings(mainViewModel, aiPaneState.llmProvider)
                         }
 
                         AI.providers.keys.indexOf(LLMProvider.OpenAI.id) -> {
-                            OpenAISettings(mainViewModel)
+                            OpenAISettings(mainViewModel, aiPaneState.llmProvider)
                         }
 
                         AI.providers.keys.indexOf(LLMProvider.Anthropic.id) -> {
-                            AnthropicSettings(mainViewModel)
+                            AnthropicSettings(mainViewModel, aiPaneState.llmProvider)
                         }
 
                         AI.providers.keys.indexOf(LLMProvider.Ollama.id) -> {
-                            OllamaSettings(mainViewModel)
+                            OllamaSettings(mainViewModel, aiPaneState.llmProvider)
                         }
 
                         AI.providers.keys.indexOf(LLMProvider.DeepSeek.id) -> {
-                            DeepSeekSettings(mainViewModel)
+                            DeepSeekSettings(mainViewModel, aiPaneState.llmProvider)
                         }
 
                         AI.providers.keys.indexOf(LMStudio.id) -> {
-                            LMStudioSettings(mainViewModel)
+                            LMStudioSettings(mainViewModel, aiPaneState.llmProvider)
                         }
                     }
                 }
@@ -226,7 +243,7 @@ private fun LinkText(text: String, url: String) = Text(
         }
     },
     style = MaterialTheme.typography.labelSmall,
-    modifier = Modifier.padding(top = 8.dp)
+    modifier = Modifier.padding(top = 8.dp).fillMaxWidth()
 )
 
 @Composable
@@ -349,27 +366,26 @@ private fun TestConnectionColumn(
 ) {
     val scope = rememberCoroutineScope()
     var isTesting by remember { mutableStateOf(false) }
-    var testConnectionResult by remember { mutableStateOf<TestConnectionResult?>(null) }
+    var generateResult by remember { mutableStateOf<GenerationResult?>(null) }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         FilledTonalButton(
             colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = if (isTesting || testConnectionResult == null) {
+                containerColor = if (isTesting || generateResult == null) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
-                    if (testConnectionResult!!.success) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.errorContainer
+                    when (generateResult) {
+                        is GenerationResult.Error -> MaterialTheme.colorScheme.errorContainer
+                        else -> MaterialTheme.colorScheme.secondaryContainer
                     }
                 }
             ),
             onClick = {
                 scope.launch(Dispatchers.IO) {
                     isTesting = true
-                    testConnectionResult = AI.testConnection(
+                    generateResult = AI.testConnection(
                         lLMProvider = llmProvider,
                         model = model,
                         apiKey = apiKey,
@@ -388,26 +404,27 @@ private fun TestConnectionColumn(
             }
         }
 
-        AnimatedVisibility(testConnectionResult != null) {
-            testConnectionResult?.let {
-                if (it.success) {
-                    Text("Success\n" + it.message)
-                } else {
-                    Text("Failure\n" + it.message)
-                }
+        AnimatedVisibility(generateResult != null) {
+            generateResult?.let {
+                Text(
+                    text = when (it) {
+                        is GenerationResult.Error -> "Failure\n" + it.errorMessage
+                        is GenerationResult.Success -> "Success\n" + it.text
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun GeminiSettings(mainViewModel: MainViewModel) {
+private fun GeminiSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
@@ -441,17 +458,29 @@ private fun GeminiSettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LLMProvider.Google) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LLMProvider.Google.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }
 
 @Composable
-private fun OpenAISettings(mainViewModel: MainViewModel) {
+private fun OpenAISettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
@@ -485,16 +514,28 @@ private fun OpenAISettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LLMProvider.OpenAI) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LLMProvider.OpenAI.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }
 
 @Composable
-private fun AnthropicSettings(mainViewModel: MainViewModel) {
+private fun AnthropicSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
@@ -528,16 +569,28 @@ private fun AnthropicSettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LLMProvider.Anthropic) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LLMProvider.Anthropic.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }
 
 @Composable
-private fun DeepSeekSettings(mainViewModel: MainViewModel) {
+private fun DeepSeekSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
@@ -571,16 +624,28 @@ private fun DeepSeekSettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LLMProvider.DeepSeek) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LLMProvider.DeepSeek.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }
 
 @Composable
-private fun OllamaSettings(mainViewModel: MainViewModel) {
+private fun OllamaSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OLLAMA_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OLLAMA_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         UrlTextField(
             value = baseUrl,
             onValueChange = {
@@ -606,16 +671,28 @@ private fun OllamaSettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LLMProvider.Ollama) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LLMProvider.Ollama.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }
 
 @Composable
-private fun LMStudioSettings(mainViewModel: MainViewModel) {
+private fun LMStudioSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.LM_STUDIO_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.LM_STUDIO_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp)) {
+    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         UrlTextField(
             value = baseUrl,
             onValueChange = {
@@ -641,5 +718,17 @@ private fun LMStudioSettings(mainViewModel: MainViewModel) {
             baseUrl = baseUrl,
             model = model
         )
+        if (defaultProvider != LMStudio) {
+            TextButton(
+                onClick = {
+                    mainViewModel.putPreferenceValue(
+                        Constants.Preferences.AI_PROVIDER,
+                        LMStudio.id
+                    )
+                }
+            ) {
+                Text(stringResource(Res.string.set_as_default))
+            }
+        }
     }
 }

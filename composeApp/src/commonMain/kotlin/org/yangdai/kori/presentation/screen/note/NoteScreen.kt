@@ -6,26 +6,22 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -52,12 +48,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.VerticalDragHandle
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,7 +72,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kfile.AudioPicker
@@ -118,10 +111,12 @@ import org.yangdai.kori.presentation.component.dialog.ShareDialog
 import org.yangdai.kori.presentation.component.dialog.TemplatesBottomSheet
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorRow
-import org.yangdai.kori.presentation.component.note.AdaptiveView
-import org.yangdai.kori.presentation.component.note.EditorProperties
+import org.yangdai.kori.presentation.component.note.AdaptiveEditorViewer
+import org.yangdai.kori.presentation.component.note.AdaptiveViewer
 import org.yangdai.kori.presentation.component.note.EditorRowAction
 import org.yangdai.kori.presentation.component.note.FindAndReplaceField
+import org.yangdai.kori.presentation.component.note.GenerateNoteButton
+import org.yangdai.kori.presentation.component.note.LoadingScrim
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
 import org.yangdai.kori.presentation.component.note.TitleTextField
@@ -132,14 +127,12 @@ import org.yangdai.kori.presentation.component.note.drawing.DrawState
 import org.yangdai.kori.presentation.component.note.drawing.InNoteDrawPreview
 import org.yangdai.kori.presentation.component.note.drawing.InkScreen
 import org.yangdai.kori.presentation.component.note.drawing.rememberDrawState
-import org.yangdai.kori.presentation.component.note.plaintext.PlainTextEditor
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.navigation.Screen
 import org.yangdai.kori.presentation.navigation.UiEvent
 import org.yangdai.kori.presentation.util.formatInstant
 import org.yangdai.kori.presentation.util.formatNumber
 import org.yangdai.kori.presentation.util.isScreenWidthExpanded
-import kotlin.math.abs
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
 
@@ -156,6 +149,7 @@ fun NoteScreen(
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val outline by viewModel.outline.collectAsStateWithLifecycle()
     val html by viewModel.html.collectAsStateWithLifecycle()
+    val isAIEnabled by viewModel.isAIEnabled.collectAsStateWithLifecycle()
 
     DisposableEffect(Unit) {
         onDispose {
@@ -318,18 +312,7 @@ fun NoteScreen(
                     }
                 }
 
-            if (noteEditingState.noteType == NoteType.PLAIN_TEXT) {
-                PlainTextEditor(
-                    modifier = Modifier.fillMaxWidth().weight(1f),
-                    textState = viewModel.contentState,
-                    scrollState = scrollState,
-                    editorProperties = EditorProperties(
-                        isReadOnly = isReadView,
-                        isLineNumberVisible = editorState.showLineNumber
-                    ),
-                    findAndReplaceState = findAndReplaceState
-                )
-            } else if (noteEditingState.noteType == NoteType.Drawing) {
+            if (noteEditingState.noteType == NoteType.Drawing) {
                 InNoteDrawPreview(
                     modifier = Modifier.fillMaxWidth()
                         .padding(horizontal = 16.dp)
@@ -339,57 +322,27 @@ fun NoteScreen(
                     uuid = noteEditingState.id
                 )
             } else {
-                if (isLargeScreen) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-
-                        val interactionSource = remember { MutableInteractionSource() }
-                        var editorWeight by remember { mutableFloatStateOf(0.5f) }
-                        val windowWidth = LocalWindowInfo.current.containerSize.width
-
+                AdaptiveEditorViewer(
+                    isLargeScreen = isLargeScreen,
+                    pagerState = pagerState,
+                    editor = { modifier ->
                         AdaptiveEditor(
-                            modifier = Modifier.fillMaxHeight().weight(editorWeight),
-                            type = noteEditingState.noteType,
-                            textState = viewModel.contentState,
+                            modifier = modifier,
+                            noteType = noteEditingState.noteType,
+                            textFieldState = viewModel.contentState,
                             scrollState = scrollState,
                             isReadOnly = isReadView,
                             isLineNumberVisible = editorState.showLineNumber,
                             isLintActive = editorState.isMarkdownLintEnabled,
                             headerRange = selectedHeader,
-                            findAndReplaceState = findAndReplaceState
+                            findAndReplaceState = findAndReplaceState,
+                            isAIEnabled = isAIEnabled,
+                            onAIContextMenuEvent = { viewModel.onAIContextMenuEvent(it) }
                         )
-
-                        VerticalDragHandle(
-                            modifier = Modifier
-                                .sizeIn(maxWidth = 12.dp, minWidth = 4.dp)
-                                .draggable(
-                                    interactionSource = interactionSource,
-                                    state = rememberDraggableState { delta ->
-                                        editorWeight =
-                                            (editorWeight + delta / windowWidth)
-                                                .coerceIn(0.15f, 0.85f)
-                                    },
-                                    orientation = Orientation.Horizontal,
-                                    onDragStopped = {
-                                        val positions = listOf(0.2f, 1f / 3f, 0.5f, 2f / 3f, 0.8f)
-                                        val closest =
-                                            positions.minByOrNull { abs(it - editorWeight) }
-                                        if (closest != null) {
-                                            editorWeight = closest
-                                        }
-                                    }
-                                ),
-                            interactionSource = interactionSource
-                        )
-
-//                        Text(
-//                            modifier = Modifier.fillMaxHeight().weight(1f - editorWeight).verticalScroll(rememberScrollState()),
-//                            text = html
-//                        )
-                        AdaptiveView(
-                            modifier = Modifier.fillMaxHeight().weight(1f - editorWeight),
+                    },
+                    viewer = if (noteEditingState.noteType == NoteType.MARKDOWN || noteEditingState.noteType == NoteType.TODO) { modifier ->
+                        AdaptiveViewer(
+                            modifier = modifier,
                             noteType = noteEditingState.noteType,
                             html = html,
                             rawText = viewModel.contentState.text.toString(),
@@ -397,49 +350,17 @@ fun NoteScreen(
                             isSheetVisible = isSideSheetOpen || showFolderDialog || showTemplatesBottomSheet,
                             printTrigger = printTrigger
                         )
-                    }
-                } else {
-                    HorizontalPager(
-                        modifier = Modifier.fillMaxWidth().weight(1f),
-                        state = pagerState,
-                        beyondViewportPageCount = 1,
-                        userScrollEnabled = false
-                    ) { currentPage ->
-                        when (currentPage) {
-                            0 -> {
-                                AdaptiveEditor(
-                                    modifier = Modifier.fillMaxSize(),
-                                    type = noteEditingState.noteType,
-                                    textState = viewModel.contentState,
-                                    scrollState = scrollState,
-                                    isReadOnly = isReadView,
-                                    isLineNumberVisible = editorState.showLineNumber,
-                                    isLintActive = editorState.isMarkdownLintEnabled,
-                                    headerRange = selectedHeader,
-                                    findAndReplaceState = findAndReplaceState
-                                )
-                            }
-
-                            1 -> {
-                                AdaptiveView(
-                                    modifier = Modifier.fillMaxSize(),
-                                    noteType = noteEditingState.noteType,
-                                    html = html,
-                                    rawText = viewModel.contentState.text.toString(),
-                                    scrollState = scrollState,
-                                    isSheetVisible = isSideSheetOpen || showFolderDialog || showTemplatesBottomSheet,
-                                    printTrigger = printTrigger
-                                )
-                            }
-                        }
-                    }
-                }
+                    } else null
+                )
             }
             AdaptiveEditorRow(
                 visible = !isReadView && !isSearching,
                 type = noteEditingState.noteType,
                 scrollState = scrollState,
-                bottomPadding = innerPadding.calculateBottomPadding(),
+                paddingValues = PaddingValues(
+                    bottom = innerPadding.calculateBottomPadding(),
+                    start = if (isAIEnabled && noteEditingState.noteType != NoteType.PLAIN_TEXT) 52.dp else 0.dp,
+                ),
                 textFieldState = viewModel.contentState
             ) { action ->
                 when (action) {
@@ -450,6 +371,21 @@ fun NoteScreen(
                 }
             }
         }
+    }
+
+    AnimatedVisibility(
+        visible = isAIEnabled && !isReadView && !isSearching,
+        enter = fadeIn() + slideInHorizontally { -it },
+        exit = fadeOut() + slideOutHorizontally { -it }
+    ) {
+        GenerateNoteButton(
+            startGenerating = { prompt, onSuccess, onError ->
+                if (prompt.isNotBlank())
+                    viewModel.generateNoteFromPrompt(prompt, onSuccess, onError)
+                else
+                    onError("Prompt cannot be empty")
+            }
+        )
     }
 
     AnimatedVisibility(
@@ -682,5 +618,14 @@ fun NoteScreen(
             html = html,
             onDismissRequest = { showExportDialog = false }
         )
+    }
+
+    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
+    AnimatedVisibility(
+        visible = isGenerating,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        LoadingScrim()
     }
 }
