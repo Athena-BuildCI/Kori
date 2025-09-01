@@ -3,8 +3,6 @@ package org.yangdai.kori.presentation.screen.template
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,7 +32,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -53,21 +50,10 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kori.composeapp.generated.resources.Res
-import kori.composeapp.generated.resources.char_count
-import kori.composeapp.generated.resources.completed_tasks
 import kori.composeapp.generated.resources.created
-import kori.composeapp.generated.resources.line_count
-import kori.composeapp.generated.resources.paragraph_count
-import kori.composeapp.generated.resources.pending_tasks
-import kori.composeapp.generated.resources.progress
 import kori.composeapp.generated.resources.right_panel_open
-import kori.composeapp.generated.resources.total_tasks
 import kori.composeapp.generated.resources.updated
-import kori.composeapp.generated.resources.word_count
-import kori.composeapp.generated.resources.word_count_without_punctuation
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.koin.compose.viewmodel.koinViewModel
@@ -80,21 +66,20 @@ import org.yangdai.kori.presentation.component.TooltipIconButton
 import org.yangdai.kori.presentation.component.dialog.ExportDialog
 import org.yangdai.kori.presentation.component.dialog.NoteTypeDialog
 import org.yangdai.kori.presentation.component.dialog.ShareDialog
+import org.yangdai.kori.presentation.component.note.AIAssist
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorRow
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorViewer
 import org.yangdai.kori.presentation.component.note.AdaptiveViewer
 import org.yangdai.kori.presentation.component.note.FindAndReplaceField
-import org.yangdai.kori.presentation.component.note.GenerateNoteButton
-import org.yangdai.kori.presentation.component.note.LoadingScrim
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
+import org.yangdai.kori.presentation.component.note.ProcessedContent
 import org.yangdai.kori.presentation.component.note.TitleTextField
 import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.navigation.Screen
 import org.yangdai.kori.presentation.navigation.UiEvent
 import org.yangdai.kori.presentation.util.formatInstant
-import org.yangdai.kori.presentation.util.formatNumber
 import org.yangdai.kori.presentation.util.isScreenWidthExpanded
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -106,12 +91,11 @@ fun TemplateScreen(
     navigateToScreen: (Screen) -> Unit,
     navigateUp: () -> Unit
 ) {
-    val noteEditingState by viewModel.noteEditingState.collectAsStateWithLifecycle()
-    val textState by viewModel.textState.collectAsStateWithLifecycle()
+    val editingState by viewModel.editingState.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    val html by viewModel.html.collectAsStateWithLifecycle()
-    val outline by viewModel.outline.collectAsStateWithLifecycle()
-    val isAIEnabled by viewModel.isAIEnabled.collectAsStateWithLifecycle()
+    val processedContent by viewModel.processedContent.collectAsStateWithLifecycle()
+    val showAI by viewModel.showAI.collectAsStateWithLifecycle()
+    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
 
     DisposableEffect(Unit) {
         onDispose {
@@ -127,7 +111,7 @@ fun TemplateScreen(
 
     var isReadView by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(editorState.isDefaultReadingView) {
-        if (editorState.isDefaultReadingView && noteEditingState.id.isNotEmpty()) {
+        if (editorState.isDefaultReadingView && editingState.id.isNotEmpty()) {
             isReadView = true
         }
     }
@@ -230,7 +214,7 @@ fun TemplateScreen(
                 FindAndReplaceField(findAndReplaceState)
             }
 
-            if (noteEditingState.noteType == NoteType.Drawing) {
+            if (editingState.noteType == NoteType.Drawing) {
                 // 绘画不能创建模版
             } else {
                 AdaptiveEditorViewer(
@@ -239,24 +223,20 @@ fun TemplateScreen(
                     editor = { modifier ->
                         AdaptiveEditor(
                             modifier = modifier,
-                            noteType = noteEditingState.noteType,
+                            noteType = editingState.noteType,
                             textFieldState = viewModel.contentState,
                             scrollState = scrollState,
                             isReadOnly = isReadView,
                             isLineNumberVisible = editorState.showLineNumber,
                             isLintActive = editorState.isMarkdownLintEnabled,
                             headerRange = selectedHeader,
-                            findAndReplaceState = findAndReplaceState,
-                            isAIEnabled = isAIEnabled,
-                            onAIContextMenuEvent = { viewModel.onAIContextMenuEvent(it) }
+                            findAndReplaceState = findAndReplaceState
                         )
                     },
-                    viewer = if (noteEditingState.noteType == NoteType.MARKDOWN || noteEditingState.noteType == NoteType.TODO) { modifier ->
+                    viewer = if (editingState.noteType == NoteType.MARKDOWN || editingState.noteType == NoteType.TODO) { modifier ->
                         AdaptiveViewer(
                             modifier = modifier,
-                            noteType = noteEditingState.noteType,
-                            html = html,
-                            rawText = viewModel.contentState.text.toString(),
+                            processedContent = processedContent,
                             scrollState = scrollState,
                             isSheetVisible = isSideSheetOpen,
                             printTrigger = printTrigger
@@ -266,11 +246,11 @@ fun TemplateScreen(
             }
             AdaptiveEditorRow(
                 visible = !isReadView && !isSearching,
-                type = noteEditingState.noteType,
+                type = editingState.noteType,
                 scrollState = scrollState,
                 paddingValues = PaddingValues(
                     bottom = innerPadding.calculateBottomPadding(),
-                    start = if (isAIEnabled && noteEditingState.noteType != NoteType.PLAIN_TEXT) 52.dp else 0.dp,
+                    start = if (showAI && viewModel.contentState.selection.collapsed && editingState.noteType != NoteType.PLAIN_TEXT) 52.dp else 0.dp,
                 ),
                 textFieldState = viewModel.contentState,
                 isTemplate = true
@@ -279,25 +259,21 @@ fun TemplateScreen(
     }
 
     AnimatedVisibility(
-        visible = isAIEnabled && !isReadView && !isSearching,
-        enter = fadeIn() + slideInHorizontally { -it },
-        exit = fadeOut() + slideOutHorizontally { -it }
+        visible = showAI && !isReadView && !isSearching,
+        enter = fadeIn(),
+        exit = fadeOut()
     ) {
-        GenerateNoteButton(
-            startGenerating = { prompt, onSuccess, onError ->
-                if (prompt.isNotBlank())
-                    viewModel.generateNoteFromPrompt(prompt, onSuccess, onError)
-                else
-                    onError("Prompt cannot be empty")
-            }
-        )
+        AIAssist(
+            isGenerating = isGenerating,
+            isTextSelectionCollapsed = viewModel.contentState.selection.collapsed,
+        ) { viewModel.onAIAssistEvent(it) }
     }
 
     NoteSideSheet(
         isDrawerOpen = isSideSheetOpen,
         onDismiss = { isSideSheetOpen = false },
-        outline = outline,
-        type = noteEditingState.noteType,
+        text = viewModel.contentState.text.toString(),
+        noteType = editingState.noteType,
         onHeaderClick = { selectedHeader = it },
         navigateTo = { navigateToScreen(it) },
         actionContent = {
@@ -331,7 +307,7 @@ fun TemplateScreen(
                 )
             }
 
-            AnimatedVisibility(noteEditingState.noteType == NoteType.MARKDOWN) {
+            AnimatedVisibility(editingState.noteType == NoteType.MARKDOWN) {
                 IconButton(onClick = { printTrigger.value = true }) {
                     Icon(
                         imageVector = Icons.Outlined.Print,
@@ -341,88 +317,28 @@ fun TemplateScreen(
             }
         },
         drawerContent = {
-            val formattedCreated = remember(noteEditingState.createdAt) {
-                if (noteEditingState.createdAt.isBlank()) ""
-                else formatInstant(Instant.parse(noteEditingState.createdAt))
+            val formattedCreated = remember(editingState.createdAt) {
+                if (editingState.createdAt.isBlank()) ""
+                else formatInstant(Instant.parse(editingState.createdAt))
             }
             NoteSideSheetItem(
                 key = stringResource(Res.string.created),
                 value = formattedCreated
             )
-            val formattedUpdated = remember(noteEditingState.updatedAt) {
-                if (noteEditingState.updatedAt.isBlank()) ""
-                else formatInstant(Instant.parse(noteEditingState.updatedAt))
+            val formattedUpdated = remember(editingState.updatedAt) {
+                if (editingState.updatedAt.isBlank()) ""
+                else formatInstant(Instant.parse(editingState.updatedAt))
             }
             NoteSideSheetItem(
                 key = stringResource(Res.string.updated),
                 value = formattedUpdated
             )
-
-            if (noteEditingState.noteType == NoteType.PLAIN_TEXT || noteEditingState.noteType == NoteType.MARKDOWN) {
-                /**文本文件信息：字符数，单词数，行数，段落数**/
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.char_count),
-                    value = formatNumber(textState.charCount)
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.word_count),
-                    value = formatNumber(textState.wordCountWithPunctuation)
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.word_count_without_punctuation),
-                    value = formatNumber(textState.wordCountWithoutPunctuation)
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.line_count),
-                    value = formatNumber(textState.lineCount)
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.paragraph_count),
-                    value = formatNumber(textState.paragraphCount)
-                )
-            } else if (noteEditingState.noteType == NoteType.TODO) {
-                /**总任务，已完成，待办，进度**/
-                var totalTasks by remember { mutableIntStateOf(0) }
-                var completedTasks by remember { mutableIntStateOf(0) }
-                var pendingTasks by remember { mutableIntStateOf(0) }
-                var progress by remember { mutableIntStateOf(0) }
-                LaunchedEffect(viewModel.contentState.text) {
-                    withContext(Dispatchers.Default) {
-                        val lines = viewModel.contentState.text.lines()
-                        totalTasks = lines.count { it.isNotBlank() }
-                        completedTasks =
-                            lines.count { it.trim().startsWith("x", ignoreCase = true) }
-                        pendingTasks = totalTasks - completedTasks
-                        progress = if (totalTasks > 0) {
-                            (completedTasks.toFloat() / totalTasks.toFloat() * 100).toInt()
-                        } else {
-                            0
-                        }
-                    }
-                }
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.total_tasks),
-                    value = totalTasks.toString()
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.completed_tasks),
-                    value = completedTasks.toString()
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.pending_tasks),
-                    value = pendingTasks.toString()
-                )
-                NoteSideSheetItem(
-                    key = stringResource(Res.string.progress),
-                    value = "$progress%"
-                )
-            }
         }
     )
 
     if (showNoteTypeDialog) {
         NoteTypeDialog(
-            oNoteType = noteEditingState.noteType,
+            oNoteType = editingState.noteType,
             onDismissRequest = { showNoteTypeDialog = false },
             onNoteTypeSelected = { noteType ->
                 showNoteTypeDialog = false
@@ -436,9 +352,9 @@ fun TemplateScreen(
             noteEntity = NoteEntity(
                 title = viewModel.titleState.text.toString(),
                 content = viewModel.contentState.text.toString(),
-                noteType = noteEditingState.noteType,
-                createdAt = noteEditingState.createdAt,
-                updatedAt = noteEditingState.updatedAt
+                noteType = editingState.noteType,
+                createdAt = editingState.createdAt,
+                updatedAt = editingState.updatedAt
             ),
             onDismissRequest = { showShareDialog = false }
         )
@@ -449,21 +365,15 @@ fun TemplateScreen(
             noteEntity = NoteEntity(
                 title = viewModel.titleState.text.toString(),
                 content = viewModel.contentState.text.toString(),
-                noteType = noteEditingState.noteType,
-                createdAt = noteEditingState.createdAt,
-                updatedAt = noteEditingState.updatedAt
+                noteType = editingState.noteType,
+                createdAt = editingState.createdAt,
+                updatedAt = editingState.updatedAt
             ),
-            html = html,
+            html = when (val processedContent = processedContent) {
+                is ProcessedContent.Markdown -> processedContent.html
+                else -> ""
+            },
             onDismissRequest = { showExportDialog = false }
         )
-    }
-
-    val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
-    AnimatedVisibility(
-        visible = isGenerating,
-        enter = fadeIn(),
-        exit = fadeOut()
-    ) {
-        LoadingScrim()
     }
 }

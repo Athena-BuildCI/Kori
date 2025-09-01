@@ -7,6 +7,7 @@ import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -119,101 +120,85 @@ fun AdaptiveEditor(
     isLineNumberVisible: Boolean,
     isLintActive: Boolean,
     headerRange: IntRange?,
-    findAndReplaceState: FindAndReplaceState,
-    isAIEnabled: Boolean = false,
-    onAIContextMenuEvent: (AIContextMenuEvent) -> Unit = {}
-) {
-    val aiModifier = if (isAIEnabled && !textFieldState.selection.collapsed) {
-        Modifier.aiContextMenu { onAIContextMenuEvent(it) }
-    } else {
-        Modifier
+    findAndReplaceState: FindAndReplaceState
+) = when (noteType) {
+    NoteType.MARKDOWN -> {
+        TextEditor(
+            modifier = modifier,
+            textFieldModifier = Modifier.markdownKeyEvents(textFieldState)
+                .dragAndDropText(textFieldState),
+            textState = textFieldState,
+            scrollState = scrollState,
+            findAndReplaceState = findAndReplaceState,
+            headerRange = headerRange,
+            editorProperties = EditorProperties(
+                isReadOnly = isReadOnly,
+                isLineNumberVisible = isLineNumberVisible,
+                isLintActive = isLintActive
+            ),
+            outputTransformation = remember { MarkdownTransformation() }
+        )
     }
 
-    when (noteType) {
-        NoteType.MARKDOWN -> {
-            TextEditor(
-                modifier = modifier,
-                textFieldModifier = Modifier.markdownKeyEvents(textFieldState)
-                    .dragAndDropText(textFieldState)
-                    .then(aiModifier),
-                textState = textFieldState,
-                scrollState = scrollState,
-                findAndReplaceState = findAndReplaceState,
-                headerRange = headerRange,
-                editorProperties = EditorProperties(
-                    isReadOnly = isReadOnly,
-                    isLineNumberVisible = isLineNumberVisible,
-                    isLintActive = isLintActive
-                ),
-                outputTransformation = remember { MarkdownTransformation() }
-            )
-        }
-
-        NoteType.TODO -> {
-            TextEditor(
-                modifier = modifier,
-                textFieldModifier = Modifier.todoTextKeyEvents(textFieldState)
-                    .dragAndDropText(textFieldState)
-                    .then(aiModifier),
-                textState = textFieldState,
-                scrollState = scrollState,
-                findAndReplaceState = findAndReplaceState,
-                editorProperties = EditorProperties(
-                    isReadOnly = isReadOnly,
-                    isLineNumberVisible = isLineNumberVisible
-                ),
-                outputTransformation = remember { TodoTransformation() }
-            )
-        }
-
-        NoteType.PLAIN_TEXT -> {
-            TextEditor(
-                modifier = modifier,
-                textFieldModifier = Modifier.plainTextKeyEvents(textFieldState)
-                    .dragAndDropText(textFieldState)
-                    .then(aiModifier),
-                textState = textFieldState,
-                scrollState = scrollState,
-                findAndReplaceState = findAndReplaceState,
-                editorProperties = EditorProperties(
-                    isReadOnly = isReadOnly,
-                    isLineNumberVisible = isLineNumberVisible
-                ),
-                outputTransformation = remember { PlainTextTransformation() }
-            )
-        }
-
-        else -> {}
+    NoteType.TODO -> {
+        TextEditor(
+            modifier = modifier,
+            textFieldModifier = Modifier.todoTextKeyEvents(textFieldState)
+                .dragAndDropText(textFieldState),
+            textState = textFieldState,
+            scrollState = scrollState,
+            findAndReplaceState = findAndReplaceState,
+            editorProperties = EditorProperties(
+                isReadOnly = isReadOnly,
+                isLineNumberVisible = isLineNumberVisible
+            ),
+            outputTransformation = remember { TodoTransformation() }
+        )
     }
+
+    NoteType.PLAIN_TEXT -> {
+        TextEditor(
+            modifier = modifier,
+            textFieldModifier = Modifier.plainTextKeyEvents(textFieldState)
+                .dragAndDropText(textFieldState),
+            textState = textFieldState,
+            scrollState = scrollState,
+            findAndReplaceState = findAndReplaceState,
+            editorProperties = EditorProperties(
+                isReadOnly = isReadOnly,
+                isLineNumberVisible = isLineNumberVisible
+            ),
+            outputTransformation = remember { PlainTextTransformation() }
+        )
+    }
+
+    else -> {}
 }
 
 @Composable
 fun AdaptiveViewer(
     modifier: Modifier,
-    noteType: NoteType,
-    html: String,
-    rawText: String,
+    processedContent: ProcessedContent,
     scrollState: ScrollState,
     isSheetVisible: Boolean,
     printTrigger: MutableState<Boolean>
-) = when (noteType) {
-
-    NoteType.MARKDOWN -> {
+) = when (processedContent) {
+    ProcessedContent.Empty -> Spacer(modifier)
+    is ProcessedContent.Markdown -> {
         MarkdownViewer(
             modifier = modifier,
-            html = html,
+            html = processedContent.html,
             scrollState = scrollState,
             isSheetVisible = isSheetVisible,
             printTrigger = printTrigger
         )
     }
 
-    NoteType.TODO -> {
+    is ProcessedContent.Todo -> {
         TodoViewer(
             modifier = modifier,
-            todoText = rawText
+            undoneItems = processedContent.undoneItems,
+            doneItems = processedContent.doneItems
         )
     }
-
-    else -> {}
 }

@@ -9,12 +9,16 @@ import androidx.compose.animation.expandIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,11 +27,14 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.text.input.clearText
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.GeneratingTokens
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledIconButton
@@ -52,6 +59,7 @@ import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.draw.innerShadow
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -65,6 +73,11 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.describe_the_note_you_want_to_generate
+import kori.composeapp.generated.resources.elaborate
+import kori.composeapp.generated.resources.proofread
+import kori.composeapp.generated.resources.rewrite
+import kori.composeapp.generated.resources.shorten
+import kori.composeapp.generated.resources.summarize
 import kotlinx.coroutines.delay
 import org.jetbrains.compose.resources.stringResource
 import org.yangdai.kori.presentation.component.login.brandColor1
@@ -73,15 +86,94 @@ import org.yangdai.kori.presentation.component.login.brandColor3
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalComposeUiApi::class)
 @Composable
-fun GenerateNoteButton(startGenerating: (prompt: String, onSuccess: () -> Unit, onError: (errorMsg: String) -> Unit) -> Unit) {
+private fun LoadingScrim() {
+    BackHandler {}
+    Box(
+        modifier = Modifier
+            .imePadding()
+            .fillMaxSize()
+            .pointerInput(Unit) { }
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)),
+        contentAlignment = Alignment.Center
+    ) {
+        ContainedLoadingIndicator()
+    }
+}
+
+@Composable
+private fun AIAssistChip(
+    onClick: () -> Unit,
+    label: String
+) = AssistChip(
+    modifier = Modifier.focusProperties { canFocus = false },
+    onClick = onClick,
+    label = { Text(label) },
+    border = BorderStroke(
+        width = 1.dp,
+        brush = Brush.verticalGradient(
+            colors = listOf(brandColor1, brandColor2, brandColor3)
+        )
+    ),
+    colors = AssistChipDefaults.assistChipColors(
+        containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.8f)
+    )
+)
+
+sealed interface AIAssistEvent {
+    data object Rewrite : AIAssistEvent
+    data object Summarize : AIAssistEvent
+    data object Proofread : AIAssistEvent
+    data object Shorten : AIAssistEvent
+    data object Elaborate : AIAssistEvent
+    data class Generate(val prompt: String) : AIAssistEvent
+}
+
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+fun AIAssist(
+    isGenerating: Boolean,
+    isTextSelectionCollapsed: Boolean,
+    onEvent: (AIAssistEvent) -> Unit
+) = BoxWithConstraints(
+    modifier = Modifier.fillMaxSize(),
+    contentAlignment = Alignment.BottomStart
+) {
     val prompt = rememberTextFieldState()
     var inputMode by rememberSaveable { mutableStateOf(false) }
-    var isGenerating by rememberSaveable { mutableStateOf(false) }
-    var errorMessage by rememberSaveable { mutableStateOf<String?>(null) }
-    BoxWithConstraints(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.BottomStart
-    ) {
+    if (!isTextSelectionCollapsed) {
+        Row(
+            modifier = Modifier.imePadding()
+                .systemBarsPadding()
+                .displayCutoutPadding()
+                .padding(bottom = 48.dp)
+                .horizontalScroll(rememberScrollState()),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Spacer(Modifier.width(6.dp))
+            AIAssistChip(
+                onClick = { onEvent(AIAssistEvent.Proofread) },
+                label = stringResource(Res.string.proofread)
+            )
+            AIAssistChip(
+                onClick = { onEvent(AIAssistEvent.Shorten) },
+                label = stringResource(Res.string.shorten)
+            )
+            AIAssistChip(
+                onClick = { onEvent(AIAssistEvent.Elaborate) },
+                label = stringResource(Res.string.elaborate)
+            )
+            AIAssistChip(
+                onClick = { onEvent(AIAssistEvent.Rewrite) },
+                label = stringResource(Res.string.rewrite)
+            )
+            AIAssistChip(
+                onClick = { onEvent(AIAssistEvent.Summarize) },
+                label = stringResource(Res.string.summarize)
+            )
+            Spacer(Modifier.width(6.dp))
+        }
+    } else {
         val backgroundColor by animateColorAsState(
             if (inputMode) MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
             else Color.Transparent
@@ -150,19 +242,7 @@ fun GenerateNoteButton(startGenerating: (prompt: String, onSuccess: () -> Unit, 
                     modifier = widthModifier.focusRequester(focusRequester).onPreviewKeyEvent {
                         if (it.isCtrlPressed && it.key == Key.Enter && it.type == KeyEventType.KeyUp) {
                             if (inputMode && !isGenerating) {
-                                isGenerating = true
-                                startGenerating(
-                                    prompt.text.toString(),
-                                    {
-                                        isGenerating = false
-                                        inputMode = false
-                                        prompt.clearText()
-                                    },
-                                    { errorMsg ->
-                                        isGenerating = false
-                                        errorMessage = errorMsg
-                                    }
-                                )
+                                onEvent(AIAssistEvent.Generate(prompt.text.toString()))
                                 true
                             } else {
                                 false
@@ -171,7 +251,6 @@ fun GenerateNoteButton(startGenerating: (prompt: String, onSuccess: () -> Unit, 
                     },
                     state = prompt,
                     readOnly = isGenerating,
-                    isError = errorMessage != null,
                     textStyle = MaterialTheme.typography.bodyMedium,
                     shape = MaterialTheme.shapes.extraLargeIncreased,
                     colors = OutlinedTextFieldDefaults.colors(
@@ -220,19 +299,7 @@ fun GenerateNoteButton(startGenerating: (prompt: String, onSuccess: () -> Unit, 
                             ),
                         onClick = {
                             if (inputMode) {
-                                isGenerating = true
-                                startGenerating(
-                                    prompt.text.toString(),
-                                    {
-                                        isGenerating = false
-                                        inputMode = false
-                                        prompt.clearText()
-                                    },
-                                    { errorMsg ->
-                                        isGenerating = false
-                                        errorMessage = errorMsg
-                                    }
-                                )
+                                onEvent(AIAssistEvent.Generate(prompt.text.toString()))
                             } else inputMode = true
                         }
                     ) {
@@ -245,18 +312,12 @@ fun GenerateNoteButton(startGenerating: (prompt: String, onSuccess: () -> Unit, 
             }
         }
     }
-}
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalComposeUiApi::class)
-@Composable
-fun LoadingScrim() {
-    BackHandler {}
-    Box(
-        modifier = Modifier.fillMaxSize()
-            .pointerInput(Unit) { }
-            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)),
-        contentAlignment = Alignment.Center
+    AnimatedVisibility(
+        visible = isGenerating && !isTextSelectionCollapsed,
+        enter = fadeIn(),
+        exit = fadeOut()
     ) {
-        ContainedLoadingIndicator()
+        LoadingScrim()
     }
 }

@@ -128,10 +128,14 @@
     <string name="cowriter_description">Access to third-party AI models</string>
     <string name="model">Model</string>
     <string name="key">Key</string>
+    <string name="test">Test</string>
     <string name="set_as_default">Set as default</string>
     <string name="describe_the_note_you_want_to_generate">Describe the note you want to generate</string>
     <string name="rewrite">Rewrite</string>
     <string name="summarize">Summarize</string>
+    <string name="proofread">Proofread</string>
+    <string name="shorten">Shorten</string>
+    <string name="elaborate">Elaborate</string>
 
     <string name="share_as">Share as</string>
     <string name="file">File</string>
