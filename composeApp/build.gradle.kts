@@ -127,8 +127,8 @@ android {
         applicationId = "org.yangdai.kori"
         minSdk = 29
         targetSdk = 36
-        versionCode = 110
-        versionName = "1.1.0"
+        versionCode = 111
+        versionName = "1.1.1"
     }
     splits {
         abi {
@@ -234,6 +234,7 @@ compose.desktop {
             isEnabled = false
         }
         nativeDistributions {
+            modules("jdk.unsupported", "jdk.unsupported.desktop", "java.net.http", "jdk.jsobject")
             macOS {
                 appCategory = "public.app-category.productivity"
                 bundleID = "org.yangdai.kori"
@@ -264,7 +265,7 @@ compose.desktop {
                 TargetFormat.Rpm
             )
             packageName = "Kori"
-            packageVersion = "1.1.0"
+            packageVersion = "1.1.1"
             description = "Compose Multiplatform App"
             licenseFile.set(rootProject.file("LICENSE.txt"))
         }

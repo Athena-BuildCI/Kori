@@ -132,7 +132,7 @@
     <string name="summarize">总结</string>
     <string name="proofread">校对</string>
     <string name="shorten">精简</string>
-    <string name="elaborate">扩写</string>
+    <string name="elaborate">扩充</string>
 
     <string name="share_as">分享笔记为</string>
     <string name="file">文件</string>
@@ -149,6 +149,7 @@
     <string name="reset_database_warning">重置数据库会导致所有笔记和文件夹被彻底删除且不可恢复，请决定是否继续操作?</string>
     <string name="backup">备份</string>
     <string name="restore_from_backup">还原</string>
+    <string name="migrate_from_open_note">从 OpenNote JSON 文件迁移</string>
 
     <string name="toolbox">工具箱</string>
     <string name="edit_local_file">编辑本机文件</string>
