@@ -47,24 +47,51 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/release.jks
           
       # 核心步骤：构建签名的 Release APK
-      # 修改点：SIGNING_STORE_PASSWORD 和 SIGNING_KEY_PASSWORD 现在都引用同一个 Secret
       - name: Build Signed Release APK
         env:
-          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }} # 使用您的密码变量
+          SIGNING_STORE_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
           SIGNING_KEY_ALIAS: ${{ secrets.SIGNING_KEY_ALIAS }}
-          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }} # 使用您的密码变量
+          SIGNING_KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           ./gradlew :composeApp:assembleRelease \
             -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/release.jks \
             -Pandroid.injected.signing.store.password=$SIGNING_STORE_PASSWORD \
             -Pandroid.injected.signing.key.alias=$SIGNING_KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$SIGNING_KEY_PASSWORD
+      
+      # 列出生成的文件（用于调试和确认）
+      - name: List generated APKs
+        run: ls -R composeApp/build/outputs/apk/release/
 
-      - name: Upload Signed APK
+      # --- 修改点：分别为每个 ABI 的 APK 上传工件 ---
+      # 您可以根据您在 build.gradle 中配置的 ABI 列表，修改或增删以下步骤
+      - name: Upload arm64-v8a APK
         uses: actions/upload-artifact@v4
         with:
-          name: signed-android-apk
-          path: composeApp/build/outputs/apk/release/*.apk
+          name: signed-apk-arm64-v8a
+          path: composeApp/build/outputs/apk/release/*-arm64-v8a-*.apk
+          if-no-files-found: ignore # 如果没找到文件，忽略错误并继续
+
+      - name: Upload armeabi-v7a APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-apk-armeabi-v7a
+          path: composeApp/build/outputs/apk/release/*-armeabi-v7a-*.apk
+          if-no-files-found: ignore
+
+      - name: Upload x86_64 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-apk-x86_64
+          path: composeApp/build/outputs/apk/release/*-x86_64-*.apk
+          if-no-files-found: ignore
+      
+      - name: Upload x86 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-apk-x86
+          path: composeApp/build/outputs/apk/release/*-x86-*.apk
+          if-no-files-found: ignore
 
   #---------------------------------------------------
   # 作业 2: 构建桌面应用 (未签名)
