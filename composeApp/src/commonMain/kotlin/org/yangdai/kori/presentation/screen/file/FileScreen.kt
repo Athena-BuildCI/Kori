@@ -238,9 +238,9 @@ fun FileScreen(
                             noteType = editingState.fileType,
                             textFieldState = viewModel.contentState,
                             scrollState = scrollState,
-                            isReadOnly = isReadView,
-                            isLineNumberVisible = editorState.showLineNumber,
-                            isLintActive = editorState.isMarkdownLintEnabled,
+                            readOnly = isReadView,
+                            isLineNumberVisible = editorState.isLineNumberVisible,
+                            isMarkdownLintActive = editorState.isMarkdownLintEnabled,
                             headerRange = selectedHeader,
                             findAndReplaceState = findAndReplaceState
                         )
@@ -262,7 +262,7 @@ fun FileScreen(
                 scrollState = scrollState,
                 paddingValues = PaddingValues(
                     bottom = innerPadding.calculateBottomPadding(),
-                    start = if (showAI && viewModel.contentState.selection.collapsed && editingState.fileType != NoteType.PLAIN_TEXT) 52.dp else 0.dp,
+                    start = if (showAI && editingState.fileType != NoteType.PLAIN_TEXT) 52.dp else 0.dp,
                 ),
                 textFieldState = viewModel.contentState
             ) { action ->

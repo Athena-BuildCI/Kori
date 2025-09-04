@@ -1,7 +1,6 @@
 package org.yangdai.kori.presentation.screen.note
 
 import ai.koog.agents.utils.SuitableForIO
-import ai.koog.prompt.llm.LLMProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -14,11 +13,9 @@ import androidx.navigation.toRoute
 import knet.ConnectivityObserver
 import knet.ai.AI
 import knet.ai.GenerationResult
-import knet.ai.providers.LMStudio
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.IO
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -29,14 +26,12 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.yangdai.kori.data.local.dao.FolderDao
 import org.yangdai.kori.data.local.entity.NoteEntity
 import org.yangdai.kori.data.local.entity.NoteType
@@ -53,6 +48,7 @@ import org.yangdai.kori.presentation.navigation.UiEvent
 import org.yangdai.kori.presentation.screen.settings.EditorPaneState
 import org.yangdai.kori.presentation.screen.settings.TemplatePaneState
 import org.yangdai.kori.presentation.util.Constants
+import org.yangdai.kori.presentation.util.Constants.LLMConfig.getLLMConfig
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
@@ -130,14 +126,13 @@ class NoteViewModel(
             dateFormatter = dateFormatter,
             timeFormatter = timeFormatter
         )
-    }.stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5_000L), TemplatePaneState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), TemplatePaneState())
 
-    val templates = noteRepository.getAllTemplates()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.Companion.WhileSubscribed(5_000L),
-            initialValue = emptyList()
-        )
+    val templates = noteRepository.getAllTemplates().stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000L),
+        initialValue = emptyList()
+    )
 
     val editorState = combine(
         dataStoreRepository.booleanFlow(Constants.Preferences.SHOW_LINE_NUMBER),
@@ -145,11 +140,11 @@ class NoteViewModel(
         dataStoreRepository.booleanFlow(Constants.Preferences.IS_DEFAULT_READING_VIEW)
     ) { showLineNumber, isMarkdownLintEnabled, isDefaultReadingView ->
         EditorPaneState(
-            showLineNumber = showLineNumber,
+            isLineNumberVisible = showLineNumber,
             isMarkdownLintEnabled = isMarkdownLintEnabled,
             isDefaultReadingView = isDefaultReadingView
         )
-    }.stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5_000L), EditorPaneState())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, EditorPaneState())
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val foldersWithNoteCounts: StateFlow<List<FolderDao.FolderWithNoteCount>> = dataStoreRepository
@@ -161,36 +156,36 @@ class NoteViewModel(
         }
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.Companion.WhileSubscribed(5_000L),
+            started = SharingStarted.Lazily,
             initialValue = emptyList()
         )
 
     @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
     val processedContent = _isInitialized.filter { it }
         .flatMapLatest {
-            snapshotFlow { _noteEditingState.value.noteType }
-                .flatMapLatest { noteType ->
-                    when (noteType) {
-                        NoteType.MARKDOWN -> contentSnapshotFlow.debounce(100)
-                            .map { content ->
-                                val processed = processMarkdown(content.toString())
-                                ProcessedContent.Markdown(processed)
-                            }
-
-                        NoteType.TODO -> contentSnapshotFlow.debounce(100)
-                            .map { content ->
-                                val (undone, done) = processTodo(content.lines())
-                                ProcessedContent.Todo(undone, done)
-                            }
-
-                        else -> flowOf(ProcessedContent.Empty)
+            combine(
+                snapshotFlow { _noteEditingState.value.noteType },
+                contentSnapshotFlow.debounce(100)
+            ) { noteType, content ->
+                when (noteType) {
+                    NoteType.MARKDOWN -> {
+                        val processed = processMarkdown(content.toString())
+                        ProcessedContent.Markdown(processed)
                     }
+
+                    NoteType.TODO -> {
+                        val (undone, done) = processTodo(content.lines())
+                        ProcessedContent.Todo(undone, done)
+                    }
+
+                    else -> ProcessedContent.Empty
                 }
+            }
         }
         .flowOn(Dispatchers.Default)
         .stateIn(
             scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000L),
+            started = SharingStarted.Eagerly,
             initialValue = ProcessedContent.Empty
         )
 
@@ -293,74 +288,7 @@ class NoteViewModel(
         snapshotFlow { _noteEditingState.value.noteType }
     ) { status, isAiEnabled, noteType ->
         status == ConnectivityObserver.Status.Connected && isAiEnabled && noteType != NoteType.Drawing
-    }.stateIn(viewModelScope, SharingStarted.Companion.WhileSubscribed(5_000L), false)
-
-    // LLM Config: Base URL, Model, API Key
-    private suspend fun getLLMConfig(llmProvider: LLMProvider): Triple<String, String, String> {
-        return withContext(Dispatchers.IO) {
-            when (llmProvider) {
-                LLMProvider.Google -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.GEMINI_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.GEMINI_MODEL, "")
-                    val apiKey =
-                        dataStoreRepository.getString(Constants.Preferences.GEMINI_API_KEY, "")
-                    Triple(baseUrl, model, apiKey)
-                }
-
-                LLMProvider.OpenAI -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.OPENAI_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.OPENAI_MODEL, "")
-                    val apiKey =
-                        dataStoreRepository.getString(Constants.Preferences.OPENAI_API_KEY, "")
-                    Triple(baseUrl, model, apiKey)
-                }
-
-                LLMProvider.Anthropic -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.ANTHROPIC_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.ANTHROPIC_MODEL, "")
-                    val apiKey =
-                        dataStoreRepository.getString(Constants.Preferences.ANTHROPIC_API_KEY, "")
-                    Triple(baseUrl, model, apiKey)
-                }
-
-                LLMProvider.DeepSeek -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.DEEPSEEK_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.DEEPSEEK_MODEL, "")
-                    val apiKey =
-                        dataStoreRepository.getString(Constants.Preferences.DEEPSEEK_API_KEY, "")
-                    Triple(baseUrl, model, apiKey)
-                }
-
-                LLMProvider.Ollama -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.OLLAMA_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.OLLAMA_MODEL, "")
-                    Triple(baseUrl, model, "")
-                }
-
-                LMStudio -> {
-                    val baseUrl =
-                        dataStoreRepository.getString(Constants.Preferences.LM_STUDIO_BASE_URL, "")
-                    val model =
-                        dataStoreRepository.getString(Constants.Preferences.LM_STUDIO_MODEL, "")
-                    Triple(baseUrl, model, "")
-                }
-
-                else -> {
-                    Triple("", "", "")
-                }
-            }
-        }
-    }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     private val _isGenerating = MutableStateFlow(false)
     val isGenerating = _isGenerating.asStateFlow()
@@ -375,7 +303,7 @@ class NoteViewModel(
                 AI.providers.keys.first()
             )
             val llmProvider = AI.providers[defaultProviderId] ?: AI.providers.values.first()
-            val llmConfig = getLLMConfig(llmProvider)
+            val llmConfig = getLLMConfig(llmProvider, dataStoreRepository)
             val response = AI.executePrompt(
                 lLMProvider = llmProvider,
                 baseUrl = llmConfig.first,

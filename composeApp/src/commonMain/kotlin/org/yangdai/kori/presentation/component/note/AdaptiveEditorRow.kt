@@ -20,6 +20,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
@@ -32,6 +33,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -39,6 +42,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import kori.composeapp.generated.resources.Res
+import kori.composeapp.generated.resources.control
+import org.jetbrains.compose.resources.stringResource
 import org.yangdai.kori.OS
 import org.yangdai.kori.currentPlatformInfo
 import org.yangdai.kori.data.local.entity.NoteType
@@ -100,16 +106,19 @@ class EditorRowScopeImpl(val showElevation: Boolean) : EditorRowScope {
         enabled: Boolean,
         onClick: () -> Unit
     ) = TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = {
             if (actionText.isEmpty() && hint.isEmpty()) return@TooltipBox
             PlainTooltip(
                 content = {
+                    val platformKeyboardShortCut =
+                        if (currentPlatformInfo.operatingSystem == OS.MACOS || currentPlatformInfo.operatingSystem == OS.IOS) "⌘"
+                        else stringResource(Res.string.control)
                     val annotatedString = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
                             append(hint)
                         }
-                        if (hint.isNotEmpty() && actionText.isNotEmpty()) append("\n")
+                        if (hint.isNotEmpty() && actionText.isNotEmpty()) append("\n$platformKeyboardShortCut + ")
                         append(actionText)
                     }
                     Text(annotatedString, textAlign = TextAlign.Center)
@@ -121,7 +130,7 @@ class EditorRowScopeImpl(val showElevation: Boolean) : EditorRowScope {
         enableUserInput = enabled
     ) {
         Box(
-            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
+            modifier = Modifier.fillMaxHeight().aspectRatio(1f).pointerHoverIcon(PointerIcon.Hand)
                 .clickable(enabled = enabled, role = Role.Button) { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -142,16 +151,19 @@ class EditorRowScopeImpl(val showElevation: Boolean) : EditorRowScope {
         enabled: Boolean,
         onClick: () -> Unit
     ) = TooltipBox(
-        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
         tooltip = {
             if (actionText.isEmpty() && hint.isEmpty()) return@TooltipBox
             PlainTooltip(
                 content = {
+                    val platformKeyboardShortCut =
+                        if (currentPlatformInfo.operatingSystem == OS.MACOS || currentPlatformInfo.operatingSystem == OS.IOS) "⌘"
+                        else stringResource(Res.string.control)
                     val annotatedString = buildAnnotatedString {
                         withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) {
                             append(hint)
                         }
-                        if (hint.isNotEmpty() && actionText.isNotEmpty()) append("\n")
+                        if (hint.isNotEmpty() && actionText.isNotEmpty()) append("\n$platformKeyboardShortCut + ")
                         append(actionText)
                     }
                     Text(annotatedString, textAlign = TextAlign.Center)
@@ -163,7 +175,7 @@ class EditorRowScopeImpl(val showElevation: Boolean) : EditorRowScope {
         enableUserInput = enabled
     ) {
         Box(
-            modifier = Modifier.fillMaxHeight().aspectRatio(1f)
+            modifier = Modifier.fillMaxHeight().aspectRatio(1f).pointerHoverIcon(PointerIcon.Hand)
                 .clickable(enabled = enabled, role = Role.Button) { onClick() },
             contentAlignment = Alignment.Center
         ) {
@@ -240,7 +252,3 @@ sealed class EditorRowAction {
     object Audio : EditorRowAction()
     object Templates : EditorRowAction()
 }
-
-val platformKeyboardShortCut =
-    if (currentPlatformInfo.operatingSystem == OS.MACOS || currentPlatformInfo.operatingSystem == OS.IOS) "⌘"
-    else "Ctrl"

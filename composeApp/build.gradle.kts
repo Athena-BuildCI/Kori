@@ -66,26 +66,26 @@ kotlin {
             implementation(libs.androidx.webkit)
         }
         commonMain.dependencies {
-            implementation(compose.runtime)
-            implementation(compose.foundation)
-            implementation(compose.material)
             implementation(compose.materialIconsExtended)
-            implementation(compose.ui)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
+            implementation("org.jetbrains.compose.material3:material3:1.10.0-alpha01") {
+                exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-datetime")
+            }
+
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.navigation.compose)
+
             implementation(libs.compose.backhandler)
             implementation(libs.compose.adaptive)
             implementation(libs.compose.adaptive.navigation)
             implementation(libs.compose.adaptive.layout)
-            implementation(libs.compose.material3)
+
             implementation(libs.androidx.room.runtime)
             implementation(libs.androidx.room.paging)
             implementation(libs.androidx.dataStore)
             implementation(libs.kotlinx.serialization.json)
-            implementation(libs.kotlinx.datetime)
             implementation(libs.androidx.sqlite.bundled)
 
             implementation(project.dependencies.platform(libs.koin.bom))
@@ -97,8 +97,7 @@ kotlin {
             implementation(libs.coil.compose)
             implementation(libs.koog.agents)
         }
-        iosMain.dependencies {
-        }
+        iosMain.dependencies {}
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.kotlinx.coroutines.swing)
@@ -248,7 +247,7 @@ compose.desktop {
             }
             windows {
                 shortcut = true
-                dirChooser = true
+                upgradeUuid = "80612DFA-3040-4C8D-A96A-9CB32176D0DA"
                 iconFile.set(project.file("icon.ico"))
             }
             linux {

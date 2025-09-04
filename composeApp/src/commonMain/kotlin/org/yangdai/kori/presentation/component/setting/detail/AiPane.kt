@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -34,7 +35,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
@@ -142,12 +142,11 @@ fun AiPane(mainViewModel: MainViewModel) {
                 PrimaryScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    divider = {},
                     edgePadding = 0.dp
                 ) {
                     AI.providers.entries.forEachIndexed { i, item ->
                         Tab(
-                            modifier = Modifier.clip(MaterialTheme.shapes.large),
+                            modifier = Modifier.clip(CircleShape),
                             selected = i == pagerState.currentPage,
                             onClick = {
                                 scope.launch {
@@ -169,8 +168,6 @@ fun AiPane(mainViewModel: MainViewModel) {
                         )
                     }
                 }
-
-                HorizontalDivider()
 
                 HorizontalPager(
                     state = pagerState,
@@ -429,23 +426,23 @@ private fun TestConnectionColumn(
 @Composable
 private fun GeminiSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
-    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_API_KEY)) }
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.GEMINI_MODEL)) }
+    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_API_KEY)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
                 apiKey = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.GEMINI_API_KEY, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_API_KEY, it)
             }
         )
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.GEMINI_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_BASE_URL, it)
             },
             defaultValue = GoogleClientSettings().baseUrl
         )
@@ -454,7 +451,7 @@ private fun GeminiSettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.GEMINI_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_MODEL, it)
             }
         )
         LinkText(
@@ -485,23 +482,23 @@ private fun GeminiSettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
 @Composable
 private fun OpenAISettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
-    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_API_KEY)) }
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OPENAI_MODEL)) }
+    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_API_KEY)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
                 apiKey = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.OPENAI_API_KEY, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_API_KEY, it)
             }
         )
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.OPENAI_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_BASE_URL, it)
             },
             defaultValue = OpenAIClientSettings().baseUrl
         )
@@ -510,7 +507,7 @@ private fun OpenAISettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.OPENAI_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_MODEL, it)
             }
         )
         LinkText(
@@ -540,23 +537,23 @@ private fun OpenAISettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
 
 @Composable
 private fun AnthropicSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
-    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_API_KEY)) }
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.ANTHROPIC_MODEL)) }
+    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_API_KEY)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
                 apiKey = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.ANTHROPIC_API_KEY, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_API_KEY, it)
             }
         )
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.ANTHROPIC_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_BASE_URL, it)
             },
             defaultValue = AnthropicClientSettings().baseUrl
         )
@@ -565,7 +562,7 @@ private fun AnthropicSettings(mainViewModel: MainViewModel, defaultProvider: LLM
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.ANTHROPIC_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_MODEL, it)
             }
         )
         LinkText(
@@ -595,23 +592,23 @@ private fun AnthropicSettings(mainViewModel: MainViewModel, defaultProvider: LLM
 
 @Composable
 private fun DeepSeekSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
-    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_API_KEY)) }
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.DEEPSEEK_MODEL)) }
+    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_API_KEY)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         KeyTextField(
             value = apiKey,
             onValueChange = {
                 apiKey = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.DEEPSEEK_API_KEY, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_API_KEY, it)
             }
         )
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.DEEPSEEK_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_BASE_URL, it)
             },
             defaultValue = DeepSeekClientSettings().baseUrl
         )
@@ -620,7 +617,7 @@ private fun DeepSeekSettings(mainViewModel: MainViewModel, defaultProvider: LLMP
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.DEEPSEEK_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_MODEL, it)
             }
         )
         LinkText(
@@ -651,15 +648,15 @@ private fun DeepSeekSettings(mainViewModel: MainViewModel, defaultProvider: LLMP
 @Composable
 private fun OllamaSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OLLAMA_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.OLLAMA_MODEL)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OLLAMA_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OLLAMA_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.OLLAMA_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_BASE_URL, it)
             },
             defaultValue = "http://localhost:11434"
         )
@@ -668,7 +665,7 @@ private fun OllamaSettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.OLLAMA_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_MODEL, it)
             }
         )
         LinkText(
@@ -698,15 +695,15 @@ private fun OllamaSettings(mainViewModel: MainViewModel, defaultProvider: LLMPro
 @Composable
 private fun LMStudioSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
 
-    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.LM_STUDIO_BASE_URL)) }
-    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.Preferences.LM_STUDIO_MODEL)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.LM_STUDIO_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.LM_STUDIO_MODEL)) }
 
     Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         UrlTextField(
             value = baseUrl,
             onValueChange = {
                 baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.LM_STUDIO_BASE_URL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_BASE_URL, it)
             },
             defaultValue = "http://127.0.0.1:1234"
         )
@@ -715,7 +712,7 @@ private fun LMStudioSettings(mainViewModel: MainViewModel, defaultProvider: LLMP
             value = model,
             onValueChange = {
                 model = it
-                mainViewModel.putPreferenceValue(Constants.Preferences.LM_STUDIO_MODEL, it)
+                mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_MODEL, it)
             }
         )
         LinkText(

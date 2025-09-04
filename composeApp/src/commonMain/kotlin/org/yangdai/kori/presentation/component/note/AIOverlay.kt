@@ -3,8 +3,10 @@ package org.yangdai.kori.presentation.component.note
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.expandIn
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -15,6 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -63,14 +67,18 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.describe_the_note_you_want_to_generate
 import kori.composeapp.generated.resources.elaborate
@@ -104,20 +112,45 @@ private fun LoadingScrim() {
 private fun AIAssistChip(
     onClick: () -> Unit,
     label: String
-) = AssistChip(
-    modifier = Modifier.focusProperties { canFocus = false },
-    onClick = onClick,
-    label = { Text(label) },
-    border = BorderStroke(
-        width = 1.dp,
-        brush = Brush.verticalGradient(
-            colors = listOf(brandColor1, brandColor2, brandColor3)
-        )
-    ),
-    colors = AssistChipDefaults.assistChipColors(
-        containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.8f)
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) .85f else 1f,
+        animationSpec = if (isPressed)
+            spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMediumLow
+            )
+        else
+            spring(
+                stiffness = Spring.StiffnessLow,
+                dampingRatio = Spring.DampingRatioHighBouncy,
+            ),
+        visibilityThreshold = .000001f
     )
-)
+    AssistChip(
+        modifier = Modifier
+            .pointerHoverIcon(PointerIcon.Hand)
+            .graphicsLayer {
+                scaleY = scale
+                scaleX = (1f - scale) + 1f
+            }
+            .focusProperties { canFocus = false },
+        interactionSource = interactionSource,
+        onClick = onClick,
+        label = { Text(label) },
+        border = BorderStroke(
+            width = 1.dp,
+            brush = Brush.verticalGradient(
+                colors = listOf(brandColor1, brandColor2, brandColor3)
+            )
+        ),
+        colors = AssistChipDefaults.assistChipColors(
+            containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.8f)
+        )
+    )
+}
 
 sealed interface AIAssistEvent {
     data object Rewrite : AIAssistEvent
@@ -140,7 +173,8 @@ fun AIAssist(
 ) {
     val prompt = rememberTextFieldState()
     var inputMode by rememberSaveable { mutableStateOf(false) }
-    if (!isTextSelectionCollapsed) {
+    var showChips by rememberSaveable { mutableStateOf(true) }
+    if (!isTextSelectionCollapsed && showChips) {
         Row(
             modifier = Modifier.imePadding()
                 .systemBarsPadding()
@@ -173,143 +207,154 @@ fun AIAssist(
             )
             Spacer(Modifier.width(6.dp))
         }
-    } else {
-        val backgroundColor by animateColorAsState(
-            if (inputMode) MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
-            else Color.Transparent
-        )
-        if (inputMode) {
-            Canvas(
-                Modifier.fillMaxSize().pointerInput(isGenerating) {
-                    detectTapGestures {
-                        if (isGenerating) return@detectTapGestures
-                        inputMode = false
-                    }
+    }
+
+    val backgroundColor by animateColorAsState(
+        if (inputMode) MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)
+        else Color.Transparent
+    )
+    if (inputMode) {
+        Canvas(
+            Modifier.fillMaxSize().pointerInput(isGenerating) {
+                detectTapGestures {
+                    if (isGenerating) return@detectTapGestures
+                    inputMode = false
                 }
-            ) {
-                drawRect(backgroundColor)
             }
-            BackHandler { inputMode = false }
+        ) {
+            drawRect(backgroundColor)
+        }
+        BackHandler { inputMode = false }
+    }
+
+    val widthModifier =
+        if (maxWidth >= WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND.dp)
+            Modifier.fillMaxWidth(0.25f)
+        else if (maxWidth >= WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND.dp)
+            Modifier.fillMaxWidth(0.33f)
+        else if (maxWidth >= WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND.dp)
+            Modifier.fillMaxWidth(0.5f)
+        else Modifier.fillMaxWidth()
+    val verticalPadding by animateDpAsState(if (inputMode) 16.dp else 4.dp)
+    val horizontalPadding by animateDpAsState(if (inputMode) 16.dp else 8.dp)
+    val shadowRadius by animateFloatAsState(if (inputMode) 60f else 0f)
+    Box(
+        modifier = Modifier.imePadding()
+            .systemBarsPadding()
+            .displayCutoutPadding()
+            .padding(vertical = verticalPadding, horizontal = horizontalPadding)
+            .dropShadow(MaterialTheme.shapes.extraLargeIncreased) {
+                radius = shadowRadius
+                brush = Brush.verticalGradient(
+                    colors = listOf(brandColor1, brandColor2, brandColor3)
+                )
+            }
+            .border(
+                width = 1.dp,
+                shape = MaterialTheme.shapes.extraLargeIncreased,
+                brush = Brush.verticalGradient(
+                    colors = listOf(brandColor1, brandColor2, brandColor3)
+                ),
+            )
+            .wrapContentSize()
+            .background(
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shape = MaterialTheme.shapes.extraLargeIncreased,
+            )
+            .innerShadow(MaterialTheme.shapes.extraLargeIncreased) {
+                radius = 90f
+                brush = Brush.verticalGradient(
+                    colors = listOf(brandColor1, brandColor2, brandColor3)
+                )
+                alpha = .4f
+            },
+        contentAlignment = Alignment.BottomStart
+    ) {
+        AnimatedVisibility(
+            visible = inputMode,
+            enter = fadeIn() + expandIn(expandFrom = Alignment.BottomStart),
+            exit = fadeOut() + shrinkOut(shrinkTowards = Alignment.BottomStart)
+        ) {
+            val focusRequester = remember { FocusRequester() }
+            OutlinedTextField(
+                modifier = widthModifier.focusRequester(focusRequester).onPreviewKeyEvent {
+                    if (it.isCtrlPressed && it.key == Key.Enter && it.type == KeyEventType.KeyUp) {
+                        if (inputMode && !isGenerating) {
+                            onEvent(AIAssistEvent.Generate(prompt.text.toString()))
+                            true
+                        } else {
+                            false
+                        }
+                    } else false
+                },
+                state = prompt,
+                readOnly = isGenerating,
+                textStyle = MaterialTheme.typography.bodyMedium,
+                shape = MaterialTheme.shapes.extraLargeIncreased,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color.Transparent,
+                    unfocusedBorderColor = Color.Transparent,
+                    disabledBorderColor = Color.Transparent,
+                ),
+                trailingIcon = { Spacer(Modifier.size(48.dp)) },
+                placeholder = {
+                    Text(
+                        stringResource(Res.string.describe_the_note_you_want_to_generate),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            )
+            LaunchedEffect(Unit) {
+                delay(300L)
+                focusRequester.requestFocus()
+            }
         }
 
-        val widthModifier =
-            if (maxWidth >= 1600.dp) Modifier.fillMaxWidth(0.25f)
-            else if (maxWidth >= 1200.dp) Modifier.fillMaxWidth(0.33f)
-            else if (maxWidth >= 800.dp) Modifier.fillMaxWidth(0.5f)
-            else Modifier.fillMaxWidth()
-        val verticalPadding by animateDpAsState(if (inputMode) 16.dp else 4.dp)
-        val horizontalPadding by animateDpAsState(if (inputMode) 16.dp else 8.dp)
-        val shadowRadius by animateFloatAsState(if (inputMode) 60f else 0f)
-        Box(
-            modifier = Modifier.imePadding()
-                .systemBarsPadding()
-                .displayCutoutPadding()
-                .padding(vertical = verticalPadding, horizontal = horizontalPadding)
-                .dropShadow(MaterialTheme.shapes.extraLargeIncreased) {
-                    radius = shadowRadius
-                    brush = Brush.verticalGradient(
-                        colors = listOf(brandColor1, brandColor2, brandColor3)
-                    )
-                }
-                .border(
-                    width = 1.dp,
-                    shape = MaterialTheme.shapes.extraLargeIncreased,
-                    brush = Brush.verticalGradient(
-                        colors = listOf(brandColor1, brandColor2, brandColor3)
-                    ),
-                )
-                .wrapContentSize()
-                .background(
-                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                    shape = MaterialTheme.shapes.extraLargeIncreased,
-                )
-                .innerShadow(MaterialTheme.shapes.extraLargeIncreased) {
-                    radius = 90f
-                    brush = Brush.verticalGradient(
-                        colors = listOf(brandColor1, brandColor2, brandColor3)
-                    )
-                    alpha = .4f
-                },
-            contentAlignment = Alignment.BottomStart
+        val padding by animateDpAsState(if (inputMode) 8.dp else 0.dp)
+        Crossfade(
+            isGenerating,
+            modifier = Modifier.padding(bottom = padding, end = padding)
+                .align(Alignment.BottomEnd)
         ) {
-            AnimatedVisibility(
-                visible = inputMode,
-                enter = fadeIn() + expandIn(expandFrom = Alignment.BottomStart),
-                exit = fadeOut() + shrinkOut(shrinkTowards = Alignment.BottomStart)
-            ) {
-                val focusRequester = remember { FocusRequester() }
-                OutlinedTextField(
-                    modifier = widthModifier.focusRequester(focusRequester).onPreviewKeyEvent {
-                        if (it.isCtrlPressed && it.key == Key.Enter && it.type == KeyEventType.KeyUp) {
-                            if (inputMode && !isGenerating) {
-                                onEvent(AIAssistEvent.Generate(prompt.text.toString()))
-                                true
-                            } else {
-                                false
-                            }
-                        } else false
-                    },
-                    state = prompt,
-                    readOnly = isGenerating,
-                    textStyle = MaterialTheme.typography.bodyMedium,
-                    shape = MaterialTheme.shapes.extraLargeIncreased,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color.Transparent,
-                        unfocusedBorderColor = Color.Transparent,
-                        disabledBorderColor = Color.Transparent,
-                    ),
-                    trailingIcon = { Spacer(Modifier.size(48.dp)) },
-                    placeholder = {
-                        Text(
-                            stringResource(Res.string.describe_the_note_you_want_to_generate),
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                    }
-                )
-                LaunchedEffect(Unit) {
-                    delay(300L)
-                    focusRequester.requestFocus()
-                }
-            }
-
-            val padding by animateDpAsState(if (inputMode) 8.dp else 0.dp)
-            Crossfade(
-                isGenerating,
-                modifier = Modifier.padding(bottom = padding, end = padding)
-                    .align(Alignment.BottomEnd)
-            ) {
-                if (it)
-                    LoadingIndicator(
-                        Modifier
-                            .padding(4.dp)
-                            .size(
-                                IconButtonDefaults.extraSmallContainerSize(
-                                    widthOption = IconButtonDefaults.IconButtonWidthOption.Uniform
-                                )
+            if (it)
+                LoadingIndicator(
+                    Modifier
+                        .padding(4.dp)
+                        .size(
+                            IconButtonDefaults.extraSmallContainerSize(
+                                widthOption = IconButtonDefaults.IconButtonWidthOption.Uniform
                             )
-                    )
-                else
-                    FilledIconButton(
-                        modifier = Modifier
-                            .padding(4.dp)
-                            .size(
-                                IconButtonDefaults.extraSmallContainerSize(
-                                    widthOption = IconButtonDefaults.IconButtonWidthOption.Uniform
-                                )
-                            ),
-                        onClick = {
+                        )
+                )
+            else
+                FilledIconButton(
+                    modifier = Modifier
+                        .pointerHoverIcon(PointerIcon.Hand)
+                        .focusProperties { canFocus = false }
+                        .padding(4.dp)
+                        .size(
+                            IconButtonDefaults.extraSmallContainerSize(
+                                widthOption = IconButtonDefaults.IconButtonWidthOption.Uniform
+                            )
+                        ),
+                    onClick = {
+                        if (isTextSelectionCollapsed) {
                             if (inputMode) {
                                 onEvent(AIAssistEvent.Generate(prompt.text.toString()))
-                            } else inputMode = true
+                            } else {
+                                inputMode = true
+                            }
+                        } else {
+                            showChips = !showChips
                         }
-                    ) {
-                        Icon(
-                            modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
-                            imageVector = Icons.Outlined.GeneratingTokens,
-                            contentDescription = null
-                        )
                     }
-            }
+                ) {
+                    Icon(
+                        modifier = Modifier.size(IconButtonDefaults.extraSmallIconSize),
+                        imageVector = Icons.Outlined.GeneratingTokens,
+                        contentDescription = null
+                    )
+                }
         }
     }
 
