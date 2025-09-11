@@ -126,8 +126,8 @@ android {
         applicationId = "org.yangdai.kori"
         minSdk = 29
         targetSdk = 36
-        versionCode = 111
-        versionName = "1.1.1"
+        versionCode = 112
+        versionName = "1.1.2"
     }
     splits {
         abi {
@@ -237,9 +237,6 @@ compose.desktop {
             macOS {
                 appCategory = "public.app-category.productivity"
                 bundleID = "org.yangdai.kori"
-                jvmArgs(
-                    "-Dapple.awt.application.appearance=system"
-                )
                 infoPlist {
                     extraKeysRawXml = macExtraPlistKeys
                 }
@@ -247,7 +244,7 @@ compose.desktop {
             }
             windows {
                 shortcut = true
-                upgradeUuid = "80612DFA-3040-4C8D-A96A-9CB32176D0DA"
+                upgradeUuid = "1532CBB1-4D76-47F9-9C96-71B06F9EE33B"
                 iconFile.set(project.file("icon.ico"))
             }
             linux {
@@ -264,7 +261,7 @@ compose.desktop {
                 TargetFormat.Rpm
             )
             packageName = "Kori"
-            packageVersion = "1.1.1"
+            packageVersion = "1.1.2"
             description = "Compose Multiplatform App"
             licenseFile.set(rootProject.file("LICENSE.txt"))
         }

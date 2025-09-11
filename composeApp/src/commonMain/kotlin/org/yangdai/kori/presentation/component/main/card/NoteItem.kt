@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridItemScope
+import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -74,7 +76,10 @@ fun LazyStaggeredGridItemScope.NoteItem(
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
-                        if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) onLongClick()
+                        if (event.type == PointerEventType.Press && event.buttons.isSecondaryPressed) {
+                            onLongClick()
+                            event.changes.forEach { it.consume() }
+                        }
                     }
                 }
             }
@@ -117,28 +122,19 @@ fun LazyStaggeredGridItemScope.NoteItem(
             // 内容预览
             if (noteItemProperties.cardSize != CardSize.TITLE_ONLY) {
                 val content = note.content.lineSequence().take(10).joinToString("\n")
-                when (note.noteType) {
-                    NoteType.PLAIN_TEXT ->
-                        CardContentText(
-                            text = buildPlainTextAnnotatedString(content),
-                            noteItemProperties = noteItemProperties
-                        )
-
-                    NoteType.MARKDOWN ->
-                        CardContentText(
-                            text = buildMarkdownAnnotatedString(content),
-                            noteItemProperties = noteItemProperties
-                        )
-
-                    NoteType.TODO ->
-                        CardContentText(
-                            text = buildTodoAnnotatedString(content),
-                            noteItemProperties = noteItemProperties
-                        )
-
-                    NoteType.Drawing ->
-                        DrawingImage(note = note, noteItemProperties = noteItemProperties)
-                }
+                val type = note.noteType
+                if (type == NoteType.Drawing) DrawingImage(note, noteItemProperties)
+                else BasicText(
+                    text = when (type) {
+                        NoteType.PLAIN_TEXT -> buildPlainTextAnnotatedString(content)
+                        NoteType.MARKDOWN -> buildMarkdownAnnotatedString(content)
+                        NoteType.TODO -> buildTodoAnnotatedString(content)
+                        else -> AnnotatedString("")
+                    },
+                    style = MaterialTheme.typography.bodyMedium.copy(color = LocalContentColor.current),
+                    maxLines = if (noteItemProperties.cardSize == CardSize.DEFAULT) 8 else 3,
+                    overflow = if (noteItemProperties.clipOverflow) TextOverflow.Clip else TextOverflow.Ellipsis
+                )
             }
 
             // 底部行：笔记类型和更新时间信息
@@ -184,12 +180,3 @@ fun LazyStaggeredGridItemScope.NoteItem(
             )
     }
 }
-
-@Composable
-private fun CardContentText(text: AnnotatedString, noteItemProperties: NoteItemProperties) =
-    Text(
-        text = text,
-        style = MaterialTheme.typography.bodyMedium,
-        maxLines = if (noteItemProperties.cardSize == CardSize.DEFAULT) 8 else 3,
-        overflow = if (noteItemProperties.clipOverflow) TextOverflow.Clip else TextOverflow.Ellipsis
-    )

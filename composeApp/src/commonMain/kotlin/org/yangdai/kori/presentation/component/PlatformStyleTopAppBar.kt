@@ -1,5 +1,6 @@
 package org.yangdai.kori.presentation.component
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
@@ -16,6 +17,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +29,8 @@ import org.jetbrains.compose.resources.stringResource
 import org.yangdai.kori.OS
 import org.yangdai.kori.currentPlatformInfo
 import org.yangdai.kori.isDesktop
+
+val LocalTopAppBarPadding = compositionLocalOf { TopAppBarDefaults.ContentPadding }
 
 enum class PlatformTopAppBarType {
     SmallPinned, CenteredPinned, Flexible
@@ -58,6 +62,29 @@ fun rememberPlatformStyleTopAppBarState(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
+fun SingleRowTopAppBar(
+    modifier: Modifier = Modifier,
+    title: @Composable () -> Unit,
+    navigationIcon: @Composable () -> Unit,
+    actions: @Composable RowScope.() -> Unit,
+    subtitle: @Composable () -> Unit = {},
+    windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    contentPadding: PaddingValues = LocalTopAppBarPadding.current
+) = TopAppBar(
+    modifier = modifier,
+    title = title,
+    subtitle = subtitle,
+    navigationIcon = navigationIcon,
+    actions = actions,
+    expandedHeight = 56.dp,
+    contentPadding = contentPadding,
+    windowInsets = windowInsets,
+    colors = colors
+)
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
 fun PlatformStyleTopAppBar(
     state: PlatformStyleTopAppBarState,
     title: @Composable () -> Unit,
@@ -65,7 +92,7 @@ fun PlatformStyleTopAppBar(
     navigationIcon: @Composable () -> Unit = {},
     actions: @Composable RowScope.() -> Unit = {},
     windowInsets: WindowInsets = TopAppBarDefaults.windowInsets,
-    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors(),
+    colors: TopAppBarColors = TopAppBarDefaults.topAppBarColors()
 ) = when (state.type) {
     PlatformTopAppBarType.SmallPinned -> TopAppBar(
         title = title,
@@ -75,6 +102,7 @@ fun PlatformStyleTopAppBar(
         windowInsets = windowInsets,
         colors = colors,
         expandedHeight = 56.dp,
+        contentPadding = LocalTopAppBarPadding.current,
         scrollBehavior = state.scrollBehavior
     )
 

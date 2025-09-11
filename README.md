@@ -17,10 +17,11 @@ provide a consistent note-taking experience across all platforms.
 
 [<img alt="Get it on Google Play" src="screenshots/google_play.png" width="200px">](https://play.google.com/store/apps/details?id=org.yangdai.kori&pcampaignid=web_share)
 [<img alt="Get it on GitHub" src="screenshots/github.png" width="200px">](https://github.com/YangDai2003/Kori/releases)
+[<img alt="Get it from Microsoft" src="screenshots/ms_store.png" width="200px"/>](https://apps.microsoft.com/detail/9PBLLN7S6L1H?referrer=appbadge&mode=full)
 
-To balance the account fees of the app store, the app will be sold at a very low price. You can also
-get it for free from GitHub. The app itself is no different. Thank you for your support and
-understanding.
+To help cover developer account fees, this app is available for a small price on Google Play and Apple App Store(planned).
+You can download it for free from GitHub and the Microsoft Store.
+All versions are identical. Thank you for your support!
 
 ## ✨ Key Features
 
@@ -71,18 +72,19 @@ Kori is packed with features designed to enhance your productivity and creativit
 
 ### Phone
 
-<p align="center">
-  <img src="screenshots/phone_1.png" width="16%" alt=""/>
-  <img src="screenshots/phone_2.png" width="16%" alt=""/>
-  <img src="screenshots/phone_3.png" width="16%" alt=""/>
-  <img src="screenshots/widget_1.png" width="16%" alt=""/>
-  <img src="screenshots/widget_2.png" width="16%" alt=""/>
-  <img src="screenshots/widget_3.png" width="16%" alt=""/>
+<!--suppress ALL -->
+<p>
+  <img src="screenshots/phone_1.png" width="15%" alt=""/>
+  <img src="screenshots/phone_2.png" width="15%" alt=""/>
+  <img src="screenshots/phone_3.png" width="15%" alt=""/>
+  <img src="screenshots/widget_1.png" width="15%" alt=""/>
+  <img src="screenshots/widget_2.png" width="15%" alt=""/>
+  <img src="screenshots/widget_3.png" width="15%" alt=""/>
 </p>
 
 ### Tablet
 
-<p align="center">
+<p>
   <img src="screenshots/tablet_1.png" width="32%" alt=""/>
   <img src="screenshots/tablet_2.png" width="32%" alt=""/>
   <img src="screenshots/tablet_3.png" width="32%" alt=""/>
@@ -90,7 +92,7 @@ Kori is packed with features designed to enhance your productivity and creativit
 
 ### Desktop
 
-<p align="center">
+<p>
   <img src="screenshots/desktop_1.png" width="32%" alt=""/>
   <img src="screenshots/desktop_2.png" width="32%" alt=""/>
   <img src="screenshots/desktop_3.png" width="32%" alt=""/>
