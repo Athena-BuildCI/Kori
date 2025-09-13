@@ -76,7 +76,10 @@ import kfile.VideoPicker
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.all_notes
 import kori.composeapp.generated.resources.created
+import kori.composeapp.generated.resources.find
+import kori.composeapp.generated.resources.replace
 import kori.composeapp.generated.resources.right_panel_open
+import kori.composeapp.generated.resources.side_sheet
 import kori.composeapp.generated.resources.updated
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -98,15 +101,15 @@ import org.yangdai.kori.presentation.component.dialog.NoteTypeDialog
 import org.yangdai.kori.presentation.component.dialog.ShareDialog
 import org.yangdai.kori.presentation.component.dialog.TemplatesBottomSheet
 import org.yangdai.kori.presentation.component.note.AIAssist
+import org.yangdai.kori.presentation.component.note.Action
+import org.yangdai.kori.presentation.component.note.AdaptiveActionRow
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
-import org.yangdai.kori.presentation.component.note.AdaptiveEditorRow
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorViewer
 import org.yangdai.kori.presentation.component.note.AdaptiveViewer
-import org.yangdai.kori.presentation.component.note.EditorRowAction
 import org.yangdai.kori.presentation.component.note.FindAndReplaceField
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
-import org.yangdai.kori.presentation.component.note.ProcessedContent
+import org.yangdai.kori.presentation.component.note.TitleText
 import org.yangdai.kori.presentation.component.note.TitleTextField
 import org.yangdai.kori.presentation.component.note.addAudioLink
 import org.yangdai.kori.presentation.component.note.addImageLinks
@@ -133,7 +136,6 @@ fun NoteScreen(
     val foldersWithNoteCounts by viewModel.foldersWithNoteCounts.collectAsStateWithLifecycle()
     val editingState by viewModel.editingState.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    val processedContent by viewModel.processedContent.collectAsStateWithLifecycle()
     val showAI by viewModel.showAI.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
 
@@ -174,6 +176,7 @@ fun NoteScreen(
     var isSideSheetOpen by rememberSaveable { mutableStateOf(false) }
     var showFolderDialog by remember { mutableStateOf(false) }
     var isSearching by remember { mutableStateOf(false) }
+    var editingTitle by remember { mutableStateOf(false) }
     val findAndReplaceState = rememberFindAndReplaceState()
     var selectedHeader by remember { mutableStateOf<IntRange?>(null) }
     var showNoteTypeDialog by remember { mutableStateOf(false) }
@@ -200,11 +203,6 @@ fun NoteScreen(
                 when (keyEvent.key) {
                     Key.F -> {
                         isSearching = !isSearching
-                        true
-                    }
-
-                    Key.P -> {
-                        isReadView = !isReadView
                         true
                     }
 
@@ -239,10 +237,11 @@ fun NoteScreen(
                             )
                         }
                         if (isLargeScreen)
-                            TitleTextField(
+                            TitleText(
                                 state = viewModel.titleState,
-                                readOnly = isReadView && editingState.noteType != NoteType.Drawing,
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                visible = !editingTitle,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                onClick = { editingTitle = true }
                             )
                     }
                 },
@@ -250,21 +249,22 @@ fun NoteScreen(
                 actions = {
                     if (!isReadView && editingState.noteType != NoteType.Drawing)
                         TooltipIconButton(
-                            tipText = "Ctrl + F",
+                            hint = "${stringResource(Res.string.find)} & ${stringResource(Res.string.replace)}",
+                            actionText = "F",
                             icon = if (isSearching) Icons.Default.SearchOff
                             else Icons.Default.Search,
                             onClick = { isSearching = !isSearching }
                         )
 
                     TooltipIconButton(
-                        tipText = "Ctrl + P",
                         icon = if (isReadView) Icons.Default.EditNote
                         else Icons.AutoMirrored.Filled.MenuBook,
                         onClick = { isReadView = !isReadView }
                     )
 
                     TooltipIconButton(
-                        tipText = "Ctrl + Tab",
+                        hint = stringResource(Res.string.side_sheet),
+                        actionText = "↹",
                         icon = painterResource(Res.drawable.right_panel_open),
                         onClick = { isSideSheetOpen = true }
                     )
@@ -280,21 +280,26 @@ fun NoteScreen(
                 end = innerPadding.calculateEndPadding(layoutDirection)
             )
         ) {
-            if (isLargeScreen)
+            if (isLargeScreen) {
+                AnimatedVisibility(editingTitle) {
+                    TitleTextField(
+                        state = viewModel.titleState,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                        initFocus = true,
+                        onDone = { editingTitle = false }
+                    )
+                }
                 AnimatedVisibility(isSearching) {
                     FindAndReplaceField(findAndReplaceState)
                 }
-            else
+            } else
                 AnimatedContent(isSearching) { targetState ->
-                    if (targetState)
-                        FindAndReplaceField(findAndReplaceState)
-                    else {
+                    if (targetState) FindAndReplaceField(findAndReplaceState)
+                    else
                         TitleTextField(
                             state = viewModel.titleState,
-                            readOnly = isReadView && editingState.noteType != NoteType.Drawing,
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
                         )
-                    }
                 }
 
             if (editingState.noteType == NoteType.Drawing) {
@@ -318,7 +323,7 @@ fun NoteScreen(
                             scrollState = scrollState,
                             readOnly = isReadView,
                             isLineNumberVisible = editorState.isLineNumberVisible,
-                            isMarkdownLintActive = editorState.isMarkdownLintEnabled,
+                            isLintingEnabled = editorState.isLintingEnabled,
                             headerRange = selectedHeader,
                             findAndReplaceState = findAndReplaceState
                         )
@@ -326,7 +331,8 @@ fun NoteScreen(
                     viewer = if (editingState.noteType == NoteType.MARKDOWN || editingState.noteType == NoteType.TODO) { modifier ->
                         AdaptiveViewer(
                             modifier = modifier,
-                            processedContent = processedContent,
+                            noteType = editingState.noteType,
+                            textFieldState = viewModel.contentState,
                             scrollState = scrollState,
                             isSheetVisible = isSideSheetOpen || showFolderDialog || showTemplatesBottomSheet,
                             printTrigger = printTrigger
@@ -334,7 +340,7 @@ fun NoteScreen(
                     } else null
                 )
             }
-            AdaptiveEditorRow(
+            AdaptiveActionRow(
                 visible = !isReadView && !isSearching,
                 type = editingState.noteType,
                 scrollState = scrollState,
@@ -345,10 +351,10 @@ fun NoteScreen(
                 textFieldState = viewModel.contentState
             ) { action ->
                 when (action) {
-                    EditorRowAction.Templates -> showTemplatesBottomSheet = true
-                    EditorRowAction.Images -> showImagesPicker = true
-                    EditorRowAction.Videos -> showVideoPicker = true
-                    EditorRowAction.Audio -> showAudioPicker = true
+                    Action.Templates -> showTemplatesBottomSheet = true
+                    Action.Images -> showImagesPicker = true
+                    Action.Video -> showVideoPicker = true
+                    Action.Audio -> showAudioPicker = true
                 }
             }
         }
@@ -532,10 +538,6 @@ fun NoteScreen(
                 createdAt = editingState.createdAt,
                 updatedAt = editingState.updatedAt
             ),
-            html = when (val processedContent = processedContent) {
-                is ProcessedContent.Markdown -> processedContent.html
-                else -> ""
-            },
             onDismissRequest = { showExportDialog = false }
         )
     }

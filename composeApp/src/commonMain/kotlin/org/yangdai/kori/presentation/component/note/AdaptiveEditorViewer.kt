@@ -15,28 +15,50 @@ import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.VerticalDragHandle
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.dp
+import kori.composeapp.generated.resources.Res
+import kori.composeapp.generated.resources.control
+import org.jetbrains.compose.resources.stringResource
 import org.yangdai.kori.data.local.entity.NoteType
+import org.yangdai.kori.presentation.component.note.markdown.MarkdownLint
 import org.yangdai.kori.presentation.component.note.markdown.MarkdownTransformation
 import org.yangdai.kori.presentation.component.note.markdown.MarkdownViewer
 import org.yangdai.kori.presentation.component.note.markdown.markdownKeyEvents
 import org.yangdai.kori.presentation.component.note.plaintext.PlainTextTransformation
 import org.yangdai.kori.presentation.component.note.plaintext.plainTextKeyEvents
+import org.yangdai.kori.presentation.component.note.todo.TodoLint
 import org.yangdai.kori.presentation.component.note.todo.TodoTransformation
 import org.yangdai.kori.presentation.component.note.todo.TodoViewer
 import org.yangdai.kori.presentation.component.note.todo.todoTextKeyEvents
 import kotlin.math.abs
 
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ColumnScope.AdaptiveEditorViewer(
     isLargeScreen: Boolean,
@@ -46,43 +68,69 @@ fun ColumnScope.AdaptiveEditorViewer(
 ) = if (viewer == null) {
     editor(Modifier.fillMaxWidth().weight(1f))
 } else {
-    if (isLargeScreen) {
+    if (isLargeScreen)
         Row(
             modifier = Modifier.fillMaxWidth().weight(1f),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             val interactionSource = remember { MutableInteractionSource() }
             var editorWeight by remember { mutableFloatStateOf(0.5f) }
-            val windowWidth = LocalWindowInfo.current.containerSize.width
+            val containerWidth = LocalWindowInfo.current.containerSize.width
 
-            editor(Modifier.fillMaxHeight().weight(editorWeight))
+            val anchorPoints =
+                rememberSaveable { listOf(0f, 0.2f, 1f / 3f, 0.5f, 2f / 3f, 0.8f, 1f) }
 
-            VerticalDragHandle(
-                modifier = Modifier
-                    .sizeIn(maxWidth = 12.dp, minWidth = 4.dp)
-                    .draggable(
-                        interactionSource = interactionSource,
-                        state = rememberDraggableState { delta ->
-                            editorWeight =
-                                (editorWeight + delta / windowWidth)
-                                    .coerceIn(0.15f, 0.85f)
-                        },
-                        orientation = Orientation.Horizontal,
-                        onDragStopped = {
-                            val positions = listOf(0.2f, 1f / 3f, 0.5f, 2f / 3f, 0.8f)
-                            val closest =
-                                positions.minByOrNull { abs(it - editorWeight) }
-                            if (closest != null) {
-                                editorWeight = closest
+            if (editorWeight > 0.1f)
+                editor(
+                    Modifier.fillMaxHeight().weight(editorWeight).onPreviewKeyEvent {
+                        if (it.type == KeyEventType.KeyDown && it.isCtrlPressed && it.isShiftPressed) {
+                            val currentAnchorIndex = anchorPoints.indexOf(editorWeight)
+                            when (it.key) {
+                                Key.DirectionLeft -> {
+                                    if (currentAnchorIndex > 0) editorWeight =
+                                        anchorPoints[currentAnchorIndex - 1]
+                                    true
+                                }
+
+                                Key.DirectionRight -> {
+                                    if (currentAnchorIndex < anchorPoints.lastIndex) editorWeight =
+                                        anchorPoints[currentAnchorIndex + 1]
+                                    true
+                                }
+
+                                else -> false
                             }
-                        }
-                    ),
-                interactionSource = interactionSource
-            )
+                        } else false
+                    }
+                )
 
-            viewer(Modifier.fillMaxHeight().weight(1f - editorWeight))
+            TooltipBox(
+                positionProvider = TooltipDefaults
+                    .rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = { PlainTooltip { Text("${stringResource(Res.string.control)} + ⇧ + ↔︎") } },
+                state = rememberTooltipState()
+            ) {
+                VerticalDragHandle(
+                    modifier = Modifier
+                        .sizeIn(maxWidth = 12.dp, minWidth = 4.dp)
+                        .draggable(
+                            interactionSource = interactionSource,
+                            state = rememberDraggableState { delta ->
+                                editorWeight = (editorWeight + delta / containerWidth)
+                            },
+                            orientation = Orientation.Horizontal,
+                            onDragStopped = {
+                                val closestAnchor = anchorPoints.minBy { abs(it - editorWeight) }
+                                editorWeight = closestAnchor
+                            }
+                        ),
+                    interactionSource = interactionSource
+                )
+            }
+
+            if (editorWeight < 0.9f) viewer(Modifier.fillMaxHeight().weight(1f - editorWeight))
         }
-    } else {
+    else
         HorizontalPager(
             modifier = Modifier.fillMaxWidth().weight(1f),
             state = pagerState,
@@ -94,7 +142,6 @@ fun ColumnScope.AdaptiveEditorViewer(
                 1 -> viewer(Modifier.fillMaxSize())
             }
         }
-    }
 }
 
 /**
@@ -106,7 +153,7 @@ fun ColumnScope.AdaptiveEditorViewer(
  * @param scrollState The scroll state for the editor.
  * @param readOnly Whether the editor is in read-only mode.
  * @param isLineNumberVisible Whether line numbers are visible in the editor.
- * @param isMarkdownLintActive Whether linting is active in the editor.
+ * @param isLintingEnabled Whether linting is active in the editor.
  * @param headerRange The range of headers for Markdown editor, if applicable.
  * @param findAndReplaceState The state for find-and-replace functionality in the editor.
  */
@@ -118,7 +165,7 @@ fun AdaptiveEditor(
     scrollState: ScrollState,
     readOnly: Boolean,
     isLineNumberVisible: Boolean,
-    isMarkdownLintActive: Boolean,
+    isLintingEnabled: Boolean,
     headerRange: IntRange?,
     findAndReplaceState: FindAndReplaceState
 ) {
@@ -140,6 +187,16 @@ fun AdaptiveEditor(
         }
     }
 
+    val lint = remember(noteType, isLintingEnabled) {
+        if (isLintingEnabled) {
+            when (noteType) {
+                NoteType.MARKDOWN -> MarkdownLint()
+                NoteType.TODO -> TodoLint()
+                else -> null
+            }
+        } else null
+    }
+
     TextEditor(
         modifier = modifier,
         textFieldModifier = textFieldModifier,
@@ -148,7 +205,7 @@ fun AdaptiveEditor(
         findAndReplaceState = findAndReplaceState,
         readOnly = readOnly,
         isLineNumberVisible = isLineNumberVisible,
-        isMarkdownLintActive = isMarkdownLintActive,
+        lint = lint,
         headerRange = headerRange,
         outputTransformation = outputTransformation
     )
@@ -157,27 +214,28 @@ fun AdaptiveEditor(
 @Composable
 fun AdaptiveViewer(
     modifier: Modifier,
-    processedContent: ProcessedContent,
+    noteType: NoteType,
+    textFieldState: TextFieldState,
     scrollState: ScrollState,
     isSheetVisible: Boolean,
     printTrigger: MutableState<Boolean>
-) = when (processedContent) {
-    ProcessedContent.Empty -> Spacer(modifier)
-    is ProcessedContent.Markdown -> {
+) = when (noteType) {
+    NoteType.MARKDOWN -> {
         MarkdownViewer(
             modifier = modifier,
-            html = processedContent.html,
+            textFieldState = textFieldState,
             scrollState = scrollState,
             isSheetVisible = isSheetVisible,
             printTrigger = printTrigger
         )
     }
 
-    is ProcessedContent.Todo -> {
+    NoteType.TODO -> {
         TodoViewer(
             modifier = modifier,
-            undoneItems = processedContent.undoneItems,
-            doneItems = processedContent.doneItems
+            textFieldState = textFieldState
         )
     }
+
+    else -> Spacer(modifier)
 }

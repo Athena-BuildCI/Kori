@@ -17,8 +17,10 @@ import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.Autorenew
 import androidx.compose.material.icons.outlined.LocationSearching
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -39,6 +41,8 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerIcon
+import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
@@ -146,14 +150,6 @@ private fun FindField(
             imageVector = Icons.Default.ArrowDownward, contentDescription = "Next"
         )
     }
-    IconButton(onClick = {
-        state.searchWord = ""
-        state.replaceWord = ""
-    }) {
-        Icon(
-            imageVector = Icons.Default.Close, contentDescription = "Clear"
-        )
-    }
 }
 
 @Composable
@@ -183,6 +179,7 @@ private fun ReplaceField(
 }
 
 // 由于OutlinedTextField有诡异的边距和大小，因此自定义BasicTextField来实现
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CustomTextField(
     value: String,
@@ -229,6 +226,19 @@ fun CustomTextField(
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                 )
+            },
+            trailingIcon = {
+                if (value.isNotBlank()) {
+                    IconButton(
+                        modifier = Modifier.pointerHoverIcon(PointerIcon.Default),
+                        shape = IconButtonDefaults.smallSquareShape,
+                        onClick = { onValueChange("") }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close, contentDescription = "Clear"
+                        )
+                    }
+                }
             },
             suffix = suffix,
             contentPadding = PaddingValues(0.dp),

@@ -51,7 +51,11 @@ import kfile.ImagesPicker
 import kfile.PlatformFile
 import kfile.VideoPicker
 import kori.composeapp.generated.resources.Res
+import kori.composeapp.generated.resources.find
+import kori.composeapp.generated.resources.replace
 import kori.composeapp.generated.resources.right_panel_open
+import kori.composeapp.generated.resources.save
+import kori.composeapp.generated.resources.side_sheet
 import kori.composeapp.generated.resources.updated
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -69,14 +73,14 @@ import org.yangdai.kori.presentation.component.dialog.ShareDialog
 import org.yangdai.kori.presentation.component.dialog.TemplatesBottomSheet
 import org.yangdai.kori.presentation.component.note.AIAssist
 import org.yangdai.kori.presentation.component.note.AdaptiveEditor
-import org.yangdai.kori.presentation.component.note.AdaptiveEditorRow
+import org.yangdai.kori.presentation.component.note.AdaptiveActionRow
 import org.yangdai.kori.presentation.component.note.AdaptiveEditorViewer
 import org.yangdai.kori.presentation.component.note.AdaptiveViewer
-import org.yangdai.kori.presentation.component.note.EditorRowAction
+import org.yangdai.kori.presentation.component.note.Action
 import org.yangdai.kori.presentation.component.note.FindAndReplaceField
 import org.yangdai.kori.presentation.component.note.NoteSideSheet
 import org.yangdai.kori.presentation.component.note.NoteSideSheetItem
-import org.yangdai.kori.presentation.component.note.TitleTextField
+import org.yangdai.kori.presentation.component.note.TitleText
 import org.yangdai.kori.presentation.component.note.addAudioLink
 import org.yangdai.kori.presentation.component.note.addImageLinks
 import org.yangdai.kori.presentation.component.note.addVideoLink
@@ -98,7 +102,6 @@ fun FileScreen(
 ) {
     val editingState by viewModel.editingState.collectAsStateWithLifecycle()
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
-    val processedContent by viewModel.processedContent.collectAsStateWithLifecycle()
     val needSave by viewModel.needSave.collectAsStateWithLifecycle()
     val showAI by viewModel.showAI.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
@@ -142,11 +145,6 @@ fun FileScreen(
                         true
                     }
 
-                    Key.P -> {
-                        isReadView = !isReadView
-                        true
-                    }
-
                     Key.S -> {
                         if (needSave) {
                             viewModel.saveFile(file)
@@ -174,38 +172,35 @@ fun FileScreen(
                         }
                     )
                 },
-                title = {
-                    TitleTextField(
-                        state = viewModel.titleState,
-                        readOnly = true
-                    )
-                },
+                title = { TitleText(viewModel.titleState) },
                 navigationIcon = { PlatformStyleTopAppBarNavigationIcon(navigateUp) },
                 actions = {
                     TooltipIconButton(
                         enabled = needSave,
-                        tipText = "Ctrl + S",
+                        hint = stringResource(Res.string.save),
+                        actionText = "S",
                         icon = Icons.Outlined.Save,
                         onClick = { viewModel.saveFile(file) }
                     )
 
                     if (!isReadView)
                         TooltipIconButton(
-                            tipText = "Ctrl + F",
+                            hint = "${stringResource(Res.string.find)} & ${stringResource(Res.string.replace)}",
+                            actionText = "F",
                             icon = if (isSearching) Icons.Default.SearchOff
                             else Icons.Default.Search,
                             onClick = { isSearching = !isSearching }
                         )
 
                     TooltipIconButton(
-                        tipText = "Ctrl + P",
                         icon = if (isReadView) Icons.Default.EditNote
                         else Icons.AutoMirrored.Filled.MenuBook,
                         onClick = { isReadView = !isReadView }
                     )
 
                     TooltipIconButton(
-                        tipText = "Ctrl + Tab",
+                        hint = stringResource(Res.string.side_sheet),
+                        actionText = "↹",
                         icon = painterResource(Res.drawable.right_panel_open),
                         onClick = { isSideSheetOpen = true }
                     )
@@ -239,7 +234,7 @@ fun FileScreen(
                             scrollState = scrollState,
                             readOnly = isReadView,
                             isLineNumberVisible = editorState.isLineNumberVisible,
-                            isMarkdownLintActive = editorState.isMarkdownLintEnabled,
+                            isLintingEnabled = editorState.isLintingEnabled,
                             headerRange = selectedHeader,
                             findAndReplaceState = findAndReplaceState
                         )
@@ -247,7 +242,8 @@ fun FileScreen(
                     viewer = if (editingState.fileType == NoteType.MARKDOWN || editingState.fileType == NoteType.TODO) { modifier ->
                         AdaptiveViewer(
                             modifier = modifier,
-                            processedContent = processedContent,
+                            noteType = editingState.fileType,
+                            textFieldState = viewModel.contentState,
                             scrollState = scrollState,
                             isSheetVisible = isSideSheetOpen || showTemplatesBottomSheet,
                             printTrigger = printTrigger
@@ -255,7 +251,7 @@ fun FileScreen(
                     } else null
                 )
             }
-            AdaptiveEditorRow(
+            AdaptiveActionRow(
                 visible = !isReadView && !isSearching,
                 type = editingState.fileType,
                 scrollState = scrollState,
@@ -266,10 +262,10 @@ fun FileScreen(
                 textFieldState = viewModel.contentState
             ) { action ->
                 when (action) {
-                    EditorRowAction.Templates -> showTemplatesBottomSheet = true
-                    EditorRowAction.Images -> showImagesPicker = true
-                    EditorRowAction.Videos -> showVideoPicker = true
-                    EditorRowAction.Audio -> showAudioPicker = true
+                    Action.Templates -> showTemplatesBottomSheet = true
+                    Action.Images -> showImagesPicker = true
+                    Action.Video -> showVideoPicker = true
+                    Action.Audio -> showAudioPicker = true
                 }
             }
         }
