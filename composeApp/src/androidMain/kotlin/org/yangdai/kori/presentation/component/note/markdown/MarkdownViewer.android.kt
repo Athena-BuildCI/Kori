@@ -14,7 +14,6 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.LocalActivity
 import androidx.browser.customtabs.CustomTabsIntent
-import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -25,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
@@ -38,6 +36,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.mapLatest
 import org.yangdai.kori.presentation.component.dialog.ImageViewerDialog
 import org.yangdai.kori.presentation.component.note.markdown.MarkdownDefaults.Placeholders
+import org.yangdai.kori.presentation.component.note.markdown.MarkdownDefaults.createScrollToOffsetScript
 import org.yangdai.kori.presentation.component.note.markdown.MarkdownDefaults.escaped
 import org.yangdai.kori.presentation.component.note.markdown.MarkdownDefaults.processMarkdown
 import org.yangdai.kori.presentation.theme.AppConfig
@@ -51,7 +50,7 @@ import kotlin.math.roundToInt
 actual fun MarkdownViewer(
     modifier: Modifier,
     textFieldState: TextFieldState,
-    scrollState: ScrollState,
+    firstVisibleCharPositon: Int,
     isSheetVisible: Boolean,
     printTrigger: MutableState<Boolean>,
     styles: MarkdownStyles,
@@ -74,25 +73,18 @@ actual fun MarkdownViewer(
     var clickedImageUrl by remember { mutableStateOf<String?>(null) }
 
     AndroidView(
-        modifier = modifier.clipToBounds(),
+        modifier = modifier,
         factory = {
             WebView(it).apply {
-                webView = this
+                setBackgroundColor(Color.Transparent.toArgb())
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                clipToOutline = true
                 layoutParams = ViewGroup.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
-                addJavascriptInterface(
-                    object {
-                        @Suppress("unused")
-                        @JavascriptInterface
-                        fun onImageClick(urlStr: String) {
-                            clickedImageUrl = urlStr
-                        }
-                    },
-                    "imageInterface"
-                )
-                setLayerType(View.LAYER_TYPE_HARDWARE, null)
+                webView = this
+                webViewClient = WVClient(it)
                 isVerticalScrollBarEnabled = true
                 isHorizontalScrollBarEnabled = false
                 settings.apply {
@@ -107,14 +99,22 @@ actual fun MarkdownViewer(
                     useWideViewPort = true
                     loadWithOverviewMode = false
                 }
-                this.webViewClient = WVClient(it)
-                setBackgroundColor(Color.Transparent.toArgb())
+                addJavascriptInterface(
+                    object {
+                        @Suppress("unused")
+                        @JavascriptInterface
+                        fun onImageClick(urlStr: String) {
+                            clickedImageUrl = urlStr
+                        }
+                    },
+                    "imageInterface"
+                )
             }
         },
         onReset = {
-            it.clearHistory()
             it.stopLoading()
-            it.destroy()
+            it.loadUrl("about:blank")
+            it.clearHistory()
             webView = null
         }
     )
@@ -147,33 +147,11 @@ actual fun MarkdownViewer(
             }
     }
 
-    LaunchedEffect(scrollState.value, scrollState.maxValue) {
-        val webViewInstance = webView ?: return@LaunchedEffect
-        val totalHeight = scrollState.maxValue
-        val currentScroll = scrollState.value
-        if (totalHeight <= 0) return@LaunchedEffect
-
-        // Calculate scroll percentage (0.0 to 1.0)
-        val currentScrollPercent = (currentScroll.toFloat() / totalHeight).coerceIn(0f, 1f)
-        val script = """
-        (function() {
-            // Only scroll if not currently loading to avoid conflicts
-             if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                const d = document.documentElement;
-                const b = document.body;
-                const maxHeight = Math.max(
-                    d.scrollHeight, d.offsetHeight, d.clientHeight,
-                    b.scrollHeight, b.offsetHeight
-                );
-                window.scrollTo({
-                    top: maxHeight * $currentScrollPercent,
-                    behavior: 'auto'
-                });
-             }
-        })();
-        """.trimIndent()
-
-        webViewInstance.evaluateJavascript(script, null)
+    LaunchedEffect(firstVisibleCharPositon, webView) {
+        webView?.let {
+            val script = firstVisibleCharPositon.createScrollToOffsetScript()
+            it.evaluateJavascript(script, null)
+        }
     }
 
     val activity = LocalActivity.current

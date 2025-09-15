@@ -23,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -74,11 +75,12 @@ fun TextEditor(
     isLineNumberVisible: Boolean,
     lint: Lint? = null,
     headerRange: IntRange? = null,
-    outputTransformation: OutputTransformation? = null
+    outputTransformation: OutputTransformation? = null,
+    onScroll: (firstVisibleCharPositon: Int) -> Unit = {}
 ) {
     var textLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var matchedWordsRanges by remember { mutableStateOf<List<Pair<Int, Int>>>(emptyList()) }
-    var currentRangeIndex by remember { mutableStateOf(0) }
+    var currentRangeIndex by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(textFieldState.text, findAndReplaceState.searchWord, readOnly) {
         val newRanges = if (readOnly) emptyList()
@@ -121,7 +123,7 @@ fun TextEditor(
         headerRange?.let { range ->
             textLayoutResult?.let { layout ->
                 val bounds = layout.getBoundingBox(range.first)
-                val scrollPosition = (bounds.top - 50f).toInt().coerceAtLeast(0)
+                val scrollPosition = bounds.top.toInt().coerceAtLeast(0)
                 scrollState.animateScrollTo(scrollPosition)
             }
         }
@@ -146,6 +148,18 @@ fun TextEditor(
                 }
             }
             findAndReplaceState.replaceType = ReplaceType.NONE
+        }
+    }
+
+    LaunchedEffect(textLayoutResult, scrollState.isScrollInProgress) {
+        val layoutResult = textLayoutResult ?: return@LaunchedEffect
+        if (!scrollState.isScrollInProgress) {
+            withContext(Dispatchers.Default) {
+                val firstVisibleLine =
+                    layoutResult.getLineForVerticalPosition(scrollState.value.toFloat())
+                val firstVisibleCharPosition = layoutResult.getLineStart(firstVisibleLine)
+                withContext(Dispatchers.Main) { onScroll(firstVisibleCharPosition) }
+            }
         }
     }
 
