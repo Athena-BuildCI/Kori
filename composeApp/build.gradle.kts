@@ -1,4 +1,7 @@
+@file:OptIn(ExperimentalComposeLibrary::class)
+
 import org.gradle.internal.os.OperatingSystem
+import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -8,10 +11,10 @@ plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.composeHotReload)
     alias(libs.plugins.serialization)
     alias(libs.plugins.room)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.composeHotReload)
 }
 
 val os: OperatingSystem = OperatingSystem.current()
@@ -96,6 +99,10 @@ kotlin {
 
             implementation(libs.coil.compose)
             implementation(libs.koog.agents)
+        }
+        commonTest.dependencies {
+            implementation(kotlin("test"))
+            implementation(compose.uiTest)
         }
         iosMain.dependencies {}
         jvmMain.dependencies {
