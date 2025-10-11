@@ -72,7 +72,7 @@ kotlin {
             implementation(compose.materialIconsExtended)
             implementation(compose.components.resources)
             implementation(compose.components.uiToolingPreview)
-            implementation("org.jetbrains.compose.material3:material3:1.10.0-alpha01") {
+            implementation("org.jetbrains.compose.material3:material3:1.10.0-alpha02") {
                 exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-datetime")
             }
 
@@ -98,9 +98,7 @@ kotlin {
             implementation(libs.koin.compose.viewmodel.navigation)
 
             implementation(libs.coil.compose)
-            implementation("ai.koog:koog-agents:0.4.2") {
-                exclude(group = "io.modelcontextprotocol", module = "kotlin-sdk-client-jvm")
-            }
+            implementation(libs.koog.agents)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
@@ -135,8 +133,8 @@ android {
         applicationId = "org.yangdai.kori"
         minSdk = 29
         targetSdk = 36
-        versionCode = 113
-        versionName = "1.1.3"
+        versionCode = 114
+        versionName = "1.1.4"
     }
     splits {
         abi {
@@ -269,7 +267,7 @@ compose.desktop {
                 TargetFormat.Rpm
             )
             packageName = "Kori"
-            packageVersion = "1.1.3"
+            packageVersion = "1.1.4"
             description = "Compose Multiplatform App"
             licenseFile.set(rootProject.file("LICENSE.txt"))
         }
