@@ -131,7 +131,7 @@ android {
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "org.yangdai.kori"
+        applicationId = "org.yangdai.kori.alpha"
         minSdk = 29
         targetSdk = 36
         versionCode = 114
