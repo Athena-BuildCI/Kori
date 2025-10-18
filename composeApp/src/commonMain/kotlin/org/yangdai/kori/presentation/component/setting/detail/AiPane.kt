@@ -1,6 +1,7 @@
 package org.yangdai.kori.presentation.component.setting.detail
 
 import ai.koog.prompt.executor.clients.anthropic.AnthropicClientSettings
+import ai.koog.prompt.executor.clients.dashscope.DashscopeClientSettings
 import ai.koog.prompt.executor.clients.deepseek.DeepSeekClientSettings
 import ai.koog.prompt.executor.clients.google.GoogleClientSettings
 import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
@@ -9,11 +10,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import knet.ai.AI
 import knet.ai.GenerationResult
+import knet.ai.providers.Alibaba
 import knet.ai.providers.Anthropic
 import knet.ai.providers.DeepSeek
 import knet.ai.providers.Google
@@ -104,7 +105,6 @@ fun AiPane(mainViewModel: MainViewModel) {
 
     Column(
         Modifier
-            .imePadding()
             .padding(horizontal = 16.dp)
             .fillMaxSize()
             .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
@@ -135,7 +135,7 @@ fun AiPane(mainViewModel: MainViewModel) {
 
         AnimatedVisibility(visible = aiPaneState.isAiEnabled) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 val pagerState = rememberPagerState { AI.providers.size }
@@ -172,38 +172,56 @@ fun AiPane(mainViewModel: MainViewModel) {
                 HorizontalPager(
                     state = pagerState,
                     verticalAlignment = Alignment.Top,
+                    contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp),
                     userScrollEnabled = false
                 ) { page ->
-                    when (page) {
-                        AI.providers.keys.indexOf(LLMProvider.Google.id) -> {
-                            GeminiSettings(mainViewModel, aiPaneState.llmProvider)
-                        }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        when (page) {
+                            AI.providers.keys.indexOf(LLMProvider.Google.id) -> {
+                                GeminiSettings(mainViewModel)
+                            }
 
-                        AI.providers.keys.indexOf(LLMProvider.OpenAI.id) -> {
-                            OpenAISettings(mainViewModel, aiPaneState.llmProvider)
-                        }
+                            AI.providers.keys.indexOf(LLMProvider.OpenAI.id) -> {
+                                OpenAISettings(mainViewModel)
+                            }
 
-                        AI.providers.keys.indexOf(LLMProvider.Anthropic.id) -> {
-                            AnthropicSettings(mainViewModel, aiPaneState.llmProvider)
-                        }
+                            AI.providers.keys.indexOf(LLMProvider.Anthropic.id) -> {
+                                AnthropicSettings(mainViewModel)
+                            }
 
-                        AI.providers.keys.indexOf(LLMProvider.Ollama.id) -> {
-                            OllamaSettings(mainViewModel, aiPaneState.llmProvider)
-                        }
+                            AI.providers.keys.indexOf(LLMProvider.Ollama.id) -> {
+                                OllamaSettings(mainViewModel)
+                            }
 
-                        AI.providers.keys.indexOf(LLMProvider.DeepSeek.id) -> {
-                            DeepSeekSettings(mainViewModel, aiPaneState.llmProvider)
-                        }
+                            AI.providers.keys.indexOf(LLMProvider.DeepSeek.id) -> {
+                                DeepSeekSettings(mainViewModel)
+                            }
 
-                        AI.providers.keys.indexOf(LMStudio.id) -> {
-                            LMStudioSettings(mainViewModel, aiPaneState.llmProvider)
+                            AI.providers.keys.indexOf(LMStudio.id) -> {
+                                LMStudioSettings(mainViewModel)
+                            }
+
+                            AI.providers.keys.indexOf(LLMProvider.Alibaba.id) -> {
+                                AlibabaSettings(mainViewModel)
+                            }
                         }
+                    }
+                }
+
+                if (AI.providers.values.indexOf(aiPaneState.llmProvider) != pagerState.currentPage) {
+                    TextButton(
+                        onClick = {
+                            mainViewModel.putPreferenceValue(
+                                Constants.Preferences.AI_PROVIDER,
+                                AI.providers.keys.elementAt(pagerState.currentPage)
+                            )
+                        }
+                    ) {
+                        Text(stringResource(Res.string.set_as_default))
                     }
                 }
             }
         }
-
-        Spacer(Modifier.height(8.dp))
     }
 }
 
@@ -424,317 +442,277 @@ private fun TestConnectionColumn(
 }
 
 @Composable
-private fun GeminiSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun GeminiSettings(mainViewModel: MainViewModel) {
 
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.GEMINI_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        KeyTextField(
-            value = apiKey,
-            onValueChange = {
-                apiKey = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_API_KEY, it)
-            }
-        )
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_BASE_URL, it)
-            },
-            defaultValue = GoogleClientSettings().baseUrl
-        )
-        ModelTextField(
-            modelOptions = Google.googleModelMap.keys,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "Google AI Studio",
-            url = "https://aistudio.google.com/prompts/new_chat"
-        )
-        TestConnectionColumn(
-            llmProvider = LLMProvider.Google,
-            apiKey = apiKey,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LLMProvider.Google) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LLMProvider.Google.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    KeyTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_API_KEY, it)
         }
-    }
+    )
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_BASE_URL, it)
+        },
+        defaultValue = GoogleClientSettings().baseUrl
+    )
+    ModelTextField(
+        modelOptions = Google.googleModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.GEMINI_MODEL, it)
+        }
+    )
+    LinkText(
+        text = "Google AI Studio",
+        url = "https://aistudio.google.com/prompts/new_chat"
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.Google,
+        apiKey = apiKey,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
 
 @Composable
-private fun OpenAISettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun OpenAISettings(mainViewModel: MainViewModel) {
 
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OPENAI_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        KeyTextField(
-            value = apiKey,
-            onValueChange = {
-                apiKey = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_API_KEY, it)
-            }
-        )
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_BASE_URL, it)
-            },
-            defaultValue = OpenAIClientSettings().baseUrl
-        )
-        ModelTextField(
-            modelOptions = OpenAI.openAIModelMap.keys,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "OpenAI Platform",
-            url = "https://platform.openai.com/docs/overview"
-        )
-        TestConnectionColumn(
-            llmProvider = LLMProvider.OpenAI,
-            apiKey = apiKey,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LLMProvider.OpenAI) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LLMProvider.OpenAI.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    KeyTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_API_KEY, it)
         }
-    }
+    )
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_BASE_URL, it)
+        },
+        defaultValue = OpenAIClientSettings().baseUrl
+    )
+    ModelTextField(
+        modelOptions = OpenAI.openAIModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.OPENAI_MODEL, it)
+        }
+    )
+    LinkText(
+        text = "OpenAI Platform",
+        url = "https://platform.openai.com/docs/overview"
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.OpenAI,
+        apiKey = apiKey,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
 
 @Composable
-private fun AnthropicSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun AnthropicSettings(mainViewModel: MainViewModel) {
+
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ANTHROPIC_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        KeyTextField(
-            value = apiKey,
-            onValueChange = {
-                apiKey = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_API_KEY, it)
-            }
-        )
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_BASE_URL, it)
-            },
-            defaultValue = AnthropicClientSettings().baseUrl
-        )
-        ModelTextField(
-            modelOptions = Anthropic.anthropicModelMap.keys,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "Anthropic Console",
-            url = "https://console.anthropic.com"
-        )
-        TestConnectionColumn(
-            llmProvider = LLMProvider.Anthropic,
-            apiKey = apiKey,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LLMProvider.Anthropic) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LLMProvider.Anthropic.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    KeyTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_API_KEY, it)
         }
-    }
+    )
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_BASE_URL, it)
+        },
+        defaultValue = AnthropicClientSettings().baseUrl
+    )
+    ModelTextField(
+        modelOptions = Anthropic.anthropicModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ANTHROPIC_MODEL, it)
+        }
+    )
+    LinkText(
+        text = "Anthropic Console",
+        url = "https://console.anthropic.com"
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.Anthropic,
+        apiKey = apiKey,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
 
 @Composable
-private fun DeepSeekSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun DeepSeekSettings(mainViewModel: MainViewModel) {
+
     var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_API_KEY)) }
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.DEEPSEEK_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        KeyTextField(
-            value = apiKey,
-            onValueChange = {
-                apiKey = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_API_KEY, it)
-            }
-        )
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_BASE_URL, it)
-            },
-            defaultValue = DeepSeekClientSettings().baseUrl
-        )
-        ModelTextField(
-            modelOptions = DeepSeek.deepSeekModelMap.keys,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "DeepSeek Platform",
-            url = "https://platform.deepseek.com"
-        )
-        TestConnectionColumn(
-            llmProvider = LLMProvider.DeepSeek,
-            apiKey = apiKey,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LLMProvider.DeepSeek) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LLMProvider.DeepSeek.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    KeyTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_API_KEY, it)
         }
-    }
+    )
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_BASE_URL, it)
+        },
+        defaultValue = DeepSeekClientSettings().baseUrl
+    )
+    ModelTextField(
+        modelOptions = DeepSeek.deepSeekModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.DEEPSEEK_MODEL, it)
+        }
+    )
+    LinkText(
+        text = "DeepSeek Platform",
+        url = "https://platform.deepseek.com"
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.DeepSeek,
+        apiKey = apiKey,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
 
 @Composable
-private fun OllamaSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun OllamaSettings(mainViewModel: MainViewModel) {
 
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OLLAMA_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.OLLAMA_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_BASE_URL, it)
-            },
-            defaultValue = "http://localhost:11434"
-        )
-        ModelTextField(
-            modelOptions = Ollama.ollamaModelMap.keys,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "Ollama API",
-            url = "https://github.com/ollama/ollama/blob/main/docs/api.md"
-        )
-        TestConnectionColumn(
-            llmProvider = LLMProvider.Ollama,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LLMProvider.Ollama) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LLMProvider.Ollama.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_BASE_URL, it)
+        },
+        defaultValue = "http://localhost:11434"
+    )
+    ModelTextField(
+        modelOptions = Ollama.ollamaModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.OLLAMA_MODEL, it)
         }
-    }
+    )
+    LinkText(
+        text = "Ollama API",
+        url = "https://github.com/ollama/ollama/blob/main/docs/api.md"
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.Ollama,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
 
 @Composable
-private fun LMStudioSettings(mainViewModel: MainViewModel, defaultProvider: LLMProvider) {
+private fun LMStudioSettings(mainViewModel: MainViewModel) {
 
     var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.LM_STUDIO_BASE_URL)) }
     var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.LM_STUDIO_MODEL)) }
 
-    Column(Modifier.padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        UrlTextField(
-            value = baseUrl,
-            onValueChange = {
-                baseUrl = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_BASE_URL, it)
-            },
-            defaultValue = "http://127.0.0.1:1234"
-        )
-        DynamicModelTextField(
-            baseUrl = baseUrl,
-            value = model,
-            onValueChange = {
-                model = it
-                mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_MODEL, it)
-            }
-        )
-        LinkText(
-            text = "LM Studio Docs",
-            url = "https://lmstudio.ai/docs/app/api/endpoints/openai"
-        )
-        TestConnectionColumn(
-            llmProvider = LMStudio,
-            baseUrl = baseUrl,
-            model = model
-        )
-        if (defaultProvider != LMStudio) {
-            TextButton(
-                onClick = {
-                    mainViewModel.putPreferenceValue(
-                        Constants.Preferences.AI_PROVIDER,
-                        LMStudio.id
-                    )
-                }
-            ) {
-                Text(stringResource(Res.string.set_as_default))
-            }
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_BASE_URL, it)
+        },
+        defaultValue = "http://127.0.0.1:1234"
+    )
+    DynamicModelTextField(
+        baseUrl = baseUrl,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.LM_STUDIO_MODEL, it)
         }
-    }
+    )
+    LinkText(
+        text = "LM Studio Docs",
+        url = "https://lmstudio.ai/docs/app/api/endpoints/openai"
+    )
+    TestConnectionColumn(
+        llmProvider = LMStudio,
+        baseUrl = baseUrl,
+        model = model
+    )
+}
+
+@Composable
+private fun AlibabaSettings(mainViewModel: MainViewModel) {
+
+    var apiKey by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ALIBABA_API_KEY)) }
+    var baseUrl by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ALIBABA_BASE_URL)) }
+    var model by remember { mutableStateOf(mainViewModel.getStringValue(Constants.LLMConfig.ALIBABA_MODEL)) }
+
+    KeyTextField(
+        value = apiKey,
+        onValueChange = {
+            apiKey = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ALIBABA_API_KEY, it)
+        }
+    )
+    UrlTextField(
+        value = baseUrl,
+        onValueChange = {
+            baseUrl = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ALIBABA_BASE_URL, it)
+        },
+        defaultValue = DashscopeClientSettings().baseUrl
+    )
+    ModelTextField(
+        modelOptions = Alibaba.alibabaModelMap.keys,
+        value = model,
+        onValueChange = {
+            model = it
+            mainViewModel.putPreferenceValue(Constants.LLMConfig.ALIBABA_MODEL, it)
+        }
+    )
+    LinkText(
+        text = "Alibaba Cloud",
+        url = ""
+    )
+    TestConnectionColumn(
+        llmProvider = LLMProvider.Alibaba,
+        apiKey = apiKey,
+        baseUrl = baseUrl,
+        model = model
+    )
 }
