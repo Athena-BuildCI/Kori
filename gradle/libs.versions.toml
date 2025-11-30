@@ -1,6 +1,6 @@
 [versions]
-agp = "8.13.0"
-androidx-activityCompose = "1.11.0"
+agp = "8.13.1"
+androidx-activityCompose = "1.12.0"
 androidx-appcompat = "1.7.1"
 androidx-biometric = "1.4.0-alpha04"
 androidx-documentfile = "1.1.0"
@@ -8,22 +8,21 @@ androidx-browser = "1.9.0"
 androidx-glance = "1.2.0-beta01"
 androidx-webkit = "1.14.0"
 
-androidx-lifecycle = "2.9.5"
+androidx-lifecycle = "2.9.6"
 androidx-navigation = "2.9.1"
 coilCompose = "3.3.0"
-composeMultiplatform = "1.9.1"
-composeAdaptive = "1.2.0-alpha07"
+composeMultiplatform = "1.10.0-beta02"
+composeAdaptive = "1.2.0"
 koin = "4.1.1"
-koogAgents = "0.5.1"
-composeHotReload = "1.0.0-rc02"
+koogAgents = "0.5.3"
 
-kotlin = "2.2.20"
-ksp = "2.2.20-2.0.4"
+kotlin = "2.2.21"
+ksp = "2.3.2"
 kotlinx-coroutines = "1.10.2"
 kotlinxSerializationJson = "1.9.0"
-room = "2.8.2"
-sqlite = "2.6.1"
-dataStore = "1.1.7"
+room = "2.8.4"
+sqlite = "2.6.2"
+dataStore = "1.2.0"
 
 [libraries]
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coilCompose" }
@@ -41,6 +40,10 @@ androidx-lifecycle-viewmodelCompose = { module = "org.jetbrains.androidx.lifecyc
 androidx-lifecycle-runtimeCompose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
 androidx-navigation-compose = { group = "org.jetbrains.androidx.navigation", name = "navigation-compose", version.ref = "androidx-navigation" }
 
+ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "composeMultiplatform" }
+ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "composeMultiplatform" }
+ui-tooling-preview = { module = "org.jetbrains.compose.ui:ui-tooling-preview", version.ref = "composeMultiplatform" }
+components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "composeMultiplatform" }
 compose-backhandler = { group = "org.jetbrains.compose.ui", name = "ui-backhandler", version.ref = "composeMultiplatform" }
 compose-adaptive = { group = "org.jetbrains.compose.material3.adaptive", name = "adaptive", version.ref = "composeAdaptive" }
 compose-adaptive-layout = { group = "org.jetbrains.compose.material3.adaptive", name = "adaptive-layout", version.ref = "composeAdaptive" }
@@ -65,7 +68,6 @@ androidx-glance-appwidget = { group = "androidx.glance", name = "glance-appwidge
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
-composeHotReload = { id = "org.jetbrains.compose.hot-reload", version.ref = "composeHotReload" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
