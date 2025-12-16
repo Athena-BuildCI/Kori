@@ -70,7 +70,7 @@ kotlin {
             implementation("org.jetbrains.compose.material3:material3:1.10.0-alpha05") {
                 exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-datetime")
             }
-            implementation("org.jetbrains.androidx.window:window-core:1.5.0")
+            implementation("org.jetbrains.androidx.window:window-core:1.5.1")
             implementation(libs.androidx.lifecycle.viewmodelCompose)
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.androidx.navigation.compose)
@@ -88,7 +88,6 @@ kotlin {
             implementation(libs.androidx.sqlite.bundled)
 
             implementation(project.dependencies.platform(libs.koin.bom))
-            implementation(libs.koin.core)
             implementation(libs.koin.compose)
             implementation(libs.koin.compose.viewmodel)
             implementation(libs.koin.compose.viewmodel.navigation)

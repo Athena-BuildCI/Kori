@@ -13,14 +13,16 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.pager.VerticalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,8 +55,7 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.SearchBarDefaults.inputFieldColors
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.SearchBarValue
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -167,27 +168,19 @@ fun MainScreenContent(
     navigationIcon: @Composable () -> Unit,
     navigateToScreen: (Screen) -> Unit
 ) {
-    var showSortDialog by remember { mutableStateOf(false) }
+    var showSortSheet by remember { mutableStateOf(false) }
     var showFoldersDialog by remember { mutableStateOf(false) }
     val selectedNotes = remember { mutableStateSetOf<String>() }
     val isSelectionMode by remember { derivedStateOf { selectedNotes.isNotEmpty() } }
-    val isWideScreen = rememberIsScreenWidthExpanded()
     BackHandler(enabled = isSelectionMode) { selectedNotes.clear() }
-    var fabMenuExpanded by remember { mutableStateOf(false) }
-    LaunchedEffect(isSelectionMode) { if (isSelectionMode) fabMenuExpanded = false }
-    BackHandler(enabled = fabMenuExpanded) { fabMenuExpanded = false }
 
+    val isWideScreen = rememberIsScreenWidthExpanded()
     val textFieldState = rememberTextFieldState()
     val searchBarState = rememberSearchBarState()
     val scope = rememberCoroutineScope()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val hostState = remember { SnackbarHostState() }
     val inputField = @Composable {
-        SearchBarDefaults.InputField(
-            colors = inputFieldColors(
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceBright,
-                disabledContainerColor = MaterialTheme.colorScheme.surfaceBright,
-            ),
+        SearchBarInputField(
             searchBarState = searchBarState,
             textFieldState = textFieldState,
             onSearch = {
@@ -235,7 +228,7 @@ fun MainScreenContent(
                         TooltipIconButton(
                             hint = stringResource(Res.string.sort_by),
                             icon = Icons.Default.SortByAlpha,
-                            onClick = { showSortDialog = true }
+                            onClick = { showSortSheet = true }
                         )
                 }
             }
@@ -243,6 +236,10 @@ fun MainScreenContent(
     }
     val cardPaneState by viewModel.cardPaneState.collectAsStateWithLifecycle()
     val topBarPadding = LocalTopAppBarPadding.current
+
+    var fabMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(isSelectionMode, searchBarState.currentValue) { fabMenuExpanded = false }
+    BackHandler(enabled = fabMenuExpanded) { fabMenuExpanded = false }
 
     Scaffold(
         topBar = {
@@ -300,7 +297,7 @@ fun MainScreenContent(
                                     icon = painterResource(Res.drawable.pinboard),
                                     onClick = {
                                         viewModel.pinNotes(selectedNotes.toSet())
-                                        scope.launch { snackbarHostState.showSnackbar(pinnedStr) }
+                                        scope.launch { hostState.showSnackbar(pinnedStr) }
                                         selectedNotes.clear()
                                     }
                                 )
@@ -331,7 +328,7 @@ fun MainScreenContent(
                                     icon = Icons.Default.RestoreFromTrash,
                                     onClick = {
                                         viewModel.restoreNotesFromTrash(selectedNotes.toSet())
-                                        scope.launch { snackbarHostState.showSnackbar(restoredStr) }
+                                        scope.launch { hostState.showSnackbar(restoredStr) }
                                         selectedNotes.clear()
                                     }
                                 )
@@ -359,12 +356,12 @@ fun MainScreenContent(
                                     if (deleteForever) {
                                         viewModel.deleteNotes(selectedNotes.toSet())
                                         scope.launch {
-                                            snackbarHostState.showSnackbar(deletedForeverStr)
+                                            hostState.showSnackbar(deletedForeverStr)
                                         }
                                     } else {
                                         viewModel.moveNotesToTrash(selectedNotes.toSet())
                                         scope.launch {
-                                            snackbarHostState.showSnackbar(movedToTrashStr)
+                                            hostState.showSnackbar(movedToTrashStr)
                                         }
                                     }
                                     selectedNotes.clear()
@@ -382,12 +379,8 @@ fun MainScreenContent(
                     // 常规模式的顶部应用栏
                     if (currentDrawerItem is DrawerItem.AllNotes) {
                         val searchHistorySet by viewModel.searchHistorySet.collectAsStateWithLifecycle()
-                        AdaptiveSearchBar(
-                            isLargeScreen = isWideScreen,
-                            searchBarState = searchBarState,
-                            inputField = inputField
-                        ) {
-                            if (searchHistorySet.isEmpty()) return@AdaptiveSearchBar
+                        TopSearchBar(searchBarState = searchBarState, inputField = inputField) {
+                            if (searchHistorySet.isEmpty()) return@TopSearchBar
                             ListItem(
                                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                                 leadingContent = {
@@ -462,7 +455,7 @@ fun MainScreenContent(
                                     TooltipIconButton(
                                         hint = stringResource(Res.string.sort_by),
                                         icon = Icons.Default.SortByAlpha,
-                                        onClick = { showSortDialog = true }
+                                        onClick = { showSortSheet = true }
                                     )
 
                                 if (currentDrawerItem is DrawerItem.Trash) {
@@ -505,7 +498,7 @@ fun MainScreenContent(
                                                     showMenu = false
                                                     viewModel.restoreAllNotesFromTrash()
                                                     scope.launch {
-                                                        snackbarHostState.showSnackbar(
+                                                        hostState.showSnackbar(
                                                             restoredAllStr
                                                         )
                                                     }
@@ -529,7 +522,7 @@ fun MainScreenContent(
                                                     showMenu = false
                                                     viewModel.emptyTrash()
                                                     scope.launch {
-                                                        snackbarHostState.showSnackbar(deletedAllStr)
+                                                        hostState.showSnackbar(deletedAllStr)
                                                     }
                                                 })
                                         }
@@ -547,8 +540,9 @@ fun MainScreenContent(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer
+        snackbarHost = { SnackbarHost(hostState) },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.only(WindowInsetsSides.Top)
     ) { innerPadding ->
         val pagerState = rememberPagerState { 5 }
         LaunchedEffect(currentDrawerItem) {
@@ -563,14 +557,6 @@ fun MainScreenContent(
             }
             pagerState.scrollToPage(page)
         }
-        val contentPadding = remember(innerPadding) {
-            PaddingValues(
-                top = 16.dp,
-                start = 16.dp,
-                end = 16.dp,
-                bottom = innerPadding.calculateBottomPadding() + 16.dp
-            )
-        }
         val noteItemProperties = remember(cardPaneState, viewModel.noteSortType) {
             NoteItemProperties(
                 showCreatedTime = when (viewModel.noteSortType) {
@@ -581,11 +567,9 @@ fun MainScreenContent(
                 clipOverflow = cardPaneState.clipOverflow
             )
         }
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().padding(innerPadding)) {
             VerticalPager(
-                modifier = Modifier
-                    .padding(top = innerPadding.calculateTopPadding())
-                    .fillMaxSize()
+                modifier = Modifier.fillMaxSize()
                     .background(
                         color = MaterialTheme.colorScheme.surface,
                         shape = if (isWideScreen) RoundedCornerShape(topStart = 12.dp)
@@ -606,7 +590,6 @@ fun MainScreenContent(
                                     Page(
                                         keyword = textFieldState.text.toString(),
                                         notes = searchResults,
-                                        contentPadding = contentPadding,
                                         navigateToNote = { navigateToScreen(Screen.Note(it)) },
                                         selectedNotes = selectedNotes,
                                         noteItemProperties = noteItemProperties,
@@ -615,7 +598,6 @@ fun MainScreenContent(
                                 else
                                     Page(
                                         notes = allNotes,
-                                        contentPadding = contentPadding,
                                         navigateToNote = { navigateToScreen(Screen.Note(it)) },
                                         selectedNotes = selectedNotes,
                                         noteItemProperties = noteItemProperties,
@@ -629,7 +611,6 @@ fun MainScreenContent(
                         val templateNotes by viewModel.templateNotes.collectAsStateWithLifecycle()
                         Page(
                             notes = templateNotes,
-                            contentPadding = contentPadding,
                             navigateToNote = { navigateToScreen(Screen.Template(it)) },
                             selectedNotes = selectedNotes,
                             noteItemProperties = noteItemProperties,
@@ -641,7 +622,6 @@ fun MainScreenContent(
                         val trashNotes by viewModel.trashNotes.collectAsStateWithLifecycle()
                         Page(
                             notes = trashNotes.first,
-                            contentPadding = contentPadding,
                             selectedNotes = selectedNotes,
                             noteItemProperties = noteItemProperties,
                             isSelectionMode = isSelectionMode
@@ -657,7 +637,6 @@ fun MainScreenContent(
                             }
                             Page(
                                 notes = folderNotes,
-                                contentPadding = contentPadding,
                                 navigateToNote = { navigateToScreen(Screen.Note(it)) },
                                 selectedNotes = selectedNotes,
                                 noteItemProperties = noteItemProperties,
@@ -692,7 +671,7 @@ fun MainScreenContent(
 
             FloatingActionButtonMenu(
                 modifier = Modifier.align(Alignment.BottomEnd)
-                    .padding(bottom = innerPadding.calculateBottomPadding()),
+                    .windowInsetsPadding(WindowInsets.navigationBars),
                 expanded = fabMenuExpanded,
                 button = {
                     ToggleFloatingActionButton(
@@ -759,13 +738,11 @@ fun MainScreenContent(
         }
     }
 
-    if (showSortDialog)
+    if (showSortSheet)
         NoteSortOptionBottomSheet(
             oNoteSortType = viewModel.noteSortType,
-            onDismissRequest = { showSortDialog = false },
-            onSortTypeSelected = {
-                viewModel.setNoteSorting(it)
-            }
+            onDismissRequest = { showSortSheet = false },
+            onSortTypeSelected = { viewModel.setNoteSorting(it) }
         )
 
     if (showFoldersDialog) {

@@ -49,7 +49,7 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalTime::class, ExperimentalFoundationApi::class, ExperimentalUuidApi::class)
 class NoteViewModel(
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
     private val folderRepository: FolderRepository,
     private val noteRepository: NoteRepository,
     private val dataStoreRepository: DataStoreRepository,
@@ -67,17 +67,19 @@ class NoteViewModel(
     private val _noteEditingState = MutableStateFlow(NoteEditingState())
     val editingState = _noteEditingState.asStateFlow()
     private var oNote = NoteEntity()
-    private val _isInitialized = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
-            if (route.id.isEmpty()) {
+            val savedId = savedStateHandle.get<String>("newId") ?: ""
+            if (route.id.isEmpty() && savedId.isEmpty()) {
                 titleState.setTextAndPlaceCursorAtEnd(route.sharedContentTitle)
                 contentState.setTextAndPlaceCursorAtEnd(route.sharedContentText)
                 val currentTime = Clock.System.now().toString()
+                val newId = Uuid.random().toString()
+                savedStateHandle["newId"] = newId
                 _noteEditingState.update {
                     it.copy(
-                        id = Uuid.random().toString(),
+                        id = newId,
                         folderId = route.folderId,
                         createdAt = currentTime,
                         updatedAt = currentTime,
@@ -86,7 +88,8 @@ class NoteViewModel(
                 }
                 oNote = NoteEntity()
             } else {
-                noteRepository.getNoteById(route.id)?.let { note ->
+                val id = route.id.ifEmpty { savedId }
+                noteRepository.getNoteById(id)?.let { note ->
                     titleState.setTextAndPlaceCursorAtEnd(note.title)
                     contentState.setTextAndPlaceCursorAtEnd(note.content)
                     _noteEditingState.update {
@@ -106,7 +109,6 @@ class NoteViewModel(
             }
             titleState.undoState.clearHistory()
             contentState.undoState.clearHistory()
-            _isInitialized.update { true }
         }
     }
 
@@ -129,14 +131,22 @@ class NoteViewModel(
     val editorState = combine(
         dataStoreRepository.booleanFlow(Constants.Preferences.SHOW_LINE_NUMBER),
         dataStoreRepository.booleanFlow(Constants.Preferences.IS_LINTING_ENABLED),
-        dataStoreRepository.booleanFlow(Constants.Preferences.IS_DEFAULT_READING_VIEW)
-    ) { showLineNumber, isLintingEnabled, isDefaultReadingView ->
+        dataStoreRepository.booleanFlow(Constants.Preferences.IS_DEFAULT_READING_VIEW),
+        dataStoreRepository.floatFlow(Constants.Preferences.EDITOR_WEIGHT, 0.5f)
+    ) { showLineNumber, isLintingEnabled, isDefaultReadingView, editorWeight ->
         EditorPaneState(
             isLineNumberVisible = showLineNumber,
             isLintingEnabled = isLintingEnabled,
-            isDefaultReadingView = isDefaultReadingView
+            isDefaultReadingView = isDefaultReadingView,
+            editorWeight = editorWeight
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, EditorPaneState())
+
+    fun changeDefaultEditorWeight(weight: Float) {
+        viewModelScope.launch {
+            dataStoreRepository.putFloat(Constants.Preferences.EDITOR_WEIGHT, weight)
+        }
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val foldersWithNoteCounts: StateFlow<List<FolderDao.FolderWithNoteCount>> = dataStoreRepository

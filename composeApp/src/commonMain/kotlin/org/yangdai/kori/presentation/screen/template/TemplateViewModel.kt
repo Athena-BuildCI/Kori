@@ -40,7 +40,7 @@ import kotlin.uuid.Uuid
 
 @OptIn(ExperimentalTime::class, ExperimentalFoundationApi::class, ExperimentalUuidApi::class)
 class TemplateViewModel(
-    savedStateHandle: SavedStateHandle,
+    private val savedStateHandle: SavedStateHandle,
     private val dataStoreRepository: DataStoreRepository,
     private val noteRepository: NoteRepository,
     connectivityObserver: ConnectivityObserver
@@ -58,15 +58,17 @@ class TemplateViewModel(
     val contentState = TextFieldState()
 
     private var oNote = NoteEntity(isTemplate = true)
-    private val _isInitialized = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
-            if (route.id.isEmpty()) {
+            val savedId = savedStateHandle.get<String>("newId") ?: ""
+            if (route.id.isEmpty() && savedId.isEmpty()) {
                 val currentTime = Clock.System.now().toString()
+                val newId = Uuid.random().toString()
+                savedStateHandle["newId"] = newId
                 _templateEditingState.update {
                     it.copy(
-                        id = Uuid.random().toString(),
+                        id = newId,
                         createdAt = currentTime,
                         updatedAt = currentTime,
                         noteType = NoteType.entries[route.noteType]
@@ -74,7 +76,8 @@ class TemplateViewModel(
                 }
                 oNote = NoteEntity(isTemplate = true)
             } else {
-                noteRepository.getNoteById(route.id)?.let { note ->
+                val id = route.id.ifEmpty { savedId }
+                noteRepository.getNoteById(id)?.let { note ->
                     titleState.setTextAndPlaceCursorAtEnd(note.title)
                     contentState.setTextAndPlaceCursorAtEnd(note.content)
                     _templateEditingState.update {
@@ -90,19 +93,28 @@ class TemplateViewModel(
             }
             titleState.undoState.clearHistory()
             contentState.undoState.clearHistory()
-            _isInitialized.update { true }
         }
     }
 
     val editorState = combine(
         dataStoreRepository.booleanFlow(Constants.Preferences.SHOW_LINE_NUMBER),
-        dataStoreRepository.booleanFlow(Constants.Preferences.IS_LINTING_ENABLED)
-    ) { showLineNumber, isLintingEnabled ->
+        dataStoreRepository.booleanFlow(Constants.Preferences.IS_LINTING_ENABLED),
+        dataStoreRepository.booleanFlow(Constants.Preferences.IS_DEFAULT_READING_VIEW),
+        dataStoreRepository.floatFlow(Constants.Preferences.EDITOR_WEIGHT, 0.5f)
+    ) { showLineNumber, isLintingEnabled, isDefaultReadingView, editorWeight ->
         EditorPaneState(
             isLineNumberVisible = showLineNumber,
-            isLintingEnabled = isLintingEnabled
+            isLintingEnabled = isLintingEnabled,
+            isDefaultReadingView = isDefaultReadingView,
+            editorWeight = editorWeight
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, EditorPaneState())
+
+    fun changeDefaultEditorWeight(weight: Float) {
+        viewModelScope.launch {
+            dataStoreRepository.putFloat(Constants.Preferences.EDITOR_WEIGHT, weight)
+        }
+    }
 
     fun updateNoteType(noteType: NoteType) {
         _templateEditingState.update {

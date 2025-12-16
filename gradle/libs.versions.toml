@@ -1,23 +1,23 @@
 [versions]
 agp = "8.13.1"
-androidx-activityCompose = "1.12.0"
+androidx-activityCompose = "1.12.1"
 androidx-appcompat = "1.7.1"
 androidx-biometric = "1.4.0-alpha04"
 androidx-documentfile = "1.1.0"
 androidx-browser = "1.9.0"
-androidx-glance = "1.2.0-beta01"
+androidx-glance = "1.2.0-rc01"
 androidx-webkit = "1.14.0"
 
 androidx-lifecycle = "2.9.6"
 androidx-navigation = "2.9.1"
 coilCompose = "3.3.0"
-composeMultiplatform = "1.10.0-beta02"
+composeMultiplatform = "1.10.0-rc02"
 composeAdaptive = "1.2.0"
 koin = "4.1.1"
-koogAgents = "0.5.3"
+koogAgents = "0.5.4"
 
 kotlin = "2.2.21"
-ksp = "2.3.2"
+ksp = "2.3.3"
 kotlinx-coroutines = "1.10.2"
 kotlinxSerializationJson = "1.9.0"
 room = "2.8.4"
@@ -50,7 +50,6 @@ compose-adaptive-layout = { group = "org.jetbrains.compose.material3.adaptive", 
 compose-adaptive-navigation = { group = "org.jetbrains.compose.material3.adaptive", name = "adaptive-navigation", version.ref = "composeAdaptive" }
 
 koin-bom = { module = "io.insert-koin:koin-bom", version.ref = "koin" }
-koin-core = { module = "io.insert-koin:koin-core" }
 koin-compose = { module = "io.insert-koin:koin-compose" }
 koin-compose-viewmodel = { module = "io.insert-koin:koin-compose-viewmodel" }
 koin-compose-viewmodel-navigation = { module = "io.insert-koin:koin-compose-viewmodel-navigation" }
