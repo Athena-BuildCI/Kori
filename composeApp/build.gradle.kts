@@ -56,7 +56,7 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.androidx.activity.compose)
             implementation(libs.androidx.appcompat)
-            implementation(libs.androidx.biometric)
+            implementation(libs.androidx.biometric.compose)
             implementation(libs.androidx.documentfile)
             implementation(libs.androidx.browser)
             implementation(libs.androidx.glance)
@@ -67,7 +67,7 @@ kotlin {
             implementation("org.jetbrains.compose.material:material-icons-extended:1.7.3")
             implementation(libs.components.resources)
             implementation(libs.ui.tooling.preview)
-            implementation("org.jetbrains.compose.material3:material3:1.10.0-alpha05") {
+            implementation("org.jetbrains.compose.material3:material3:1.11.0-alpha01") {
                 exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-datetime")
             }
             implementation("org.jetbrains.androidx.window:window-core:1.5.1")

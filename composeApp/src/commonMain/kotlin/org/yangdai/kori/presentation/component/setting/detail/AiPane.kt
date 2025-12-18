@@ -9,7 +9,6 @@ import ai.koog.prompt.executor.clients.openai.OpenAIClientSettings
 import ai.koog.prompt.llm.LLMProvider
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -25,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.GeneratingTokens
 import androidx.compose.material.icons.outlined.Visibility
@@ -33,14 +33,17 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.Switch
@@ -58,8 +61,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.buildAnnotatedString
@@ -102,14 +103,12 @@ fun AiPane(mainViewModel: MainViewModel) {
 
     val aiPaneState by mainViewModel.aiPaneState.collectAsStateWithLifecycle()
     val hapticFeedback = LocalHapticFeedback.current
-    val focusManager = LocalFocusManager.current
     val scope = rememberCoroutineScope()
 
     Column(
         Modifier
             .padding(horizontal = 16.dp)
             .fillMaxSize()
-            .pointerInput(Unit) { detectTapGestures { focusManager.clearFocus() } }
             .verticalScroll(rememberScrollState())
     ) {
 
@@ -140,7 +139,8 @@ fun AiPane(mainViewModel: MainViewModel) {
                 modifier = Modifier.fillMaxWidth().imePadding(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                val pagerState = rememberPagerState { AI.providers.size }
+                val pagerState =
+                    rememberPagerState(AI.providers.values.indexOf(aiPaneState.llmProvider)) { AI.providers.size }
                 PrimaryScrollableTabRow(
                     selectedTabIndex = pagerState.currentPage,
                     containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -299,7 +299,7 @@ private fun UrlTextField(
     modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
 )
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ModelTextField(
     modelOptions: Set<String>,
@@ -308,27 +308,32 @@ private fun ModelTextField(
 ) {
     var expanded by remember { mutableStateOf(false) }
 
-    ExposedDropdownMenuBox(
-        modifier = Modifier.fillMaxWidth(),
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             readOnly = true,
-            label = { Text(stringResource(Res.string.model)) },
             singleLine = true,
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            label = { Text(stringResource(Res.string.model)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth()
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            containerColor = MenuDefaults.groupStandardContainerColor,
+            shape = MenuDefaults.standaloneGroupShape,
         ) {
-            modelOptions.forEach { option ->
+            val optionCount = modelOptions.size
+            modelOptions.forEachIndexed { index, option ->
                 DropdownMenuItem(
+                    shapes = MenuDefaults.itemShape(index, optionCount),
                     text = { Text(option) },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    selected = modelOptions.toList()[index] == value,
+                    checkedLeadingIcon = { Icon(Icons.Filled.Check, null) },
                     onClick = {
                         onValueChange(option)
                         expanded = false
@@ -339,7 +344,7 @@ private fun ModelTextField(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun DynamicModelTextField(
     baseUrl: String,
@@ -356,27 +361,32 @@ private fun DynamicModelTextField(
         }
     }
 
-    ExposedDropdownMenuBox(
-        modifier = Modifier.fillMaxWidth(),
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = value,
             onValueChange = {},
             readOnly = true,
-            label = { Text(stringResource(Res.string.model)) },
             singleLine = true,
+            colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors(),
+            label = { Text(stringResource(Res.string.model)) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
             modifier = Modifier.fillMaxWidth()
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = expanded,
-            onDismissRequest = { expanded = false }
+            onDismissRequest = { expanded = false },
+            containerColor = MenuDefaults.groupStandardContainerColor,
+            shape = MenuDefaults.standaloneGroupShape,
         ) {
-            modelOptions.forEach { option ->
+            val optionCount = modelOptions.size
+            modelOptions.forEachIndexed { index, option ->
                 DropdownMenuItem(
+                    shapes = MenuDefaults.itemShape(index, optionCount),
                     text = { Text(option) },
+                    contentPadding = ExposedDropdownMenuDefaults.ItemContentPadding,
+                    selected = modelOptions.toList()[index] == value,
+                    checkedLeadingIcon = { Icon(Icons.Filled.Check, null) },
                     onClick = {
                         onValueChange(option)
                         expanded = false
