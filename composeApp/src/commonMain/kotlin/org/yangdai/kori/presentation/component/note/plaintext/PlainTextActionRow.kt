@@ -1,14 +1,6 @@
 package org.yangdai.kori.presentation.component.note.plaintext
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.FormatIndentDecrease
@@ -19,9 +11,6 @@ import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import kori.composeapp.generated.resources.Res
 import kori.composeapp.generated.resources.indent_decrease
 import kori.composeapp.generated.resources.indent_increase
@@ -37,18 +26,10 @@ import org.yangdai.kori.presentation.component.note.unTab
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun ActionRowScope.PlainTextEditorRow(
-    isTemplate: Boolean,
+fun ActionRowScope.PlainTextActionRow(
     textFieldState: TextFieldState,
     onRowAction: (Action) -> Unit
-) = Row(
-    modifier = Modifier.fillMaxWidth().height(48.dp).horizontalScroll(rememberScrollState()),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally)
-) {
-
-    Spacer(Modifier.width(4.dp))
-
+) = ActionRow {
     ActionRowSection {
         ActionButton(
             hint = stringResource(Res.string.undo),
@@ -79,7 +60,7 @@ fun ActionRowScope.PlainTextEditorRow(
         )
     }
 
-    if (!isTemplate)
+    if (!isTemplateActionRow)
         ActionRowSection {
             ActionButton(
                 hint = stringResource(Res.string.templates),
@@ -98,6 +79,4 @@ fun ActionRowScope.PlainTextEditorRow(
                 onClick = { textFieldState.edit { addAfter("{{time}}") } }
             )
         }
-
-    Spacer(Modifier.width(4.dp))
 }
