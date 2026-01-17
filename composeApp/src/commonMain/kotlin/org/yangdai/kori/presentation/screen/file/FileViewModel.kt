@@ -10,10 +10,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kfile.PlatformFile
 import kfile.delete
-import kfile.getExtension
-import kfile.getFileName
-import kfile.getLastModified
+import kfile.exists
+import kfile.fileName
+import kfile.lastModified
 import kfile.readText
+import kfile.suitableNoteType
 import kfile.writeText
 import knet.ConnectivityObserver
 import knet.ai.AI
@@ -25,6 +26,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -44,8 +47,9 @@ import kotlin.time.ExperimentalTime
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-@OptIn(ExperimentalTime::class)
+@OptIn(ExperimentalTime::class, ExperimentalFoundationApi::class)
 class FileViewModel(
+    private val platformFile: PlatformFile,
     private val noteRepository: NoteRepository,
     private val dataStoreRepository: DataStoreRepository,
     connectivityObserver: ConnectivityObserver
@@ -53,7 +57,6 @@ class FileViewModel(
     // 笔记状态
     val titleState = TextFieldState()
     val contentState = TextFieldState()
-    private val contentSnapshotFlow = snapshotFlow { contentState.text }
     private val _uiEventChannel = Channel<UiEvent>()
     val uiEventFlow = _uiEventChannel.receiveAsFlow()
     private val _fileEditingState = MutableStateFlow(FileEditingState())
@@ -61,7 +64,7 @@ class FileViewModel(
     private val _initialContent = MutableStateFlow("")
     val needSave = combine(
         _initialContent,
-        contentSnapshotFlow
+        snapshotFlow { contentState.text }
     ) { initial, current -> initial != current.toString() }
         .stateIn(
             viewModelScope,
@@ -69,39 +72,24 @@ class FileViewModel(
             false
         )
 
-    @OptIn(ExperimentalFoundationApi::class)
-    fun loadFile(file: PlatformFile) {
+    init {
         viewModelScope.launch(Dispatchers.IO) {
-            val title = file.getFileName()
-            val content = file.readText()
-            val noteType = if (file.getExtension().lowercase() in listOf(
-                    "md",
-                    "markdown",
-                    "mkd",
-                    "mdwn",
-                    "mdown",
-                    "mdtxt",
-                    "mdtext",
-                    "html"
-                )
-            ) NoteType.MARKDOWN
-            else if (
-                title.contains("todo", ignoreCase = true)
-                && file.getExtension().lowercase() == "txt"
-            ) NoteType.TODO
-            else NoteType.PLAIN_TEXT
+            if (!platformFile.exists()) {
+                _uiEventChannel.send(UiEvent.NavigateUp)
+                return@launch
+            }
+            val title = platformFile.fileName
+            val content = platformFile.readText()
+            val noteType = platformFile.suitableNoteType
             titleState.setTextAndPlaceCursorAtEnd(title)
             contentState.setTextAndPlaceCursorAtEnd(content)
             titleState.undoState.clearHistory()
             contentState.undoState.clearHistory()
             // 记录初始内容
             _initialContent.value = content
-            val updatedAt = file.getLastModified().toString()
+            val updatedAt = platformFile.lastModified().toString()
             _fileEditingState.update {
-                it.copy(
-                    updatedAt = updatedAt,
-                    fileType = noteType
-                )
+                it.copy(updatedAt = updatedAt, fileType = noteType)
             }
         }
     }
@@ -151,18 +139,17 @@ class FileViewModel(
         }
     }
 
-    fun saveFile(file: PlatformFile) {
+    fun saveFile() {
         viewModelScope.launch(Dispatchers.IO) {
             val content = contentState.text.toString()
-            file.writeText(content)
+            platformFile.writeText(content)
             _initialContent.value = content
         }
     }
 
-    fun deleteFile(file: PlatformFile) {
+    fun deleteFile() {
         viewModelScope.launch(Dispatchers.IO) {
-            if (file.delete())
-                _uiEventChannel.send(UiEvent.NavigateUp)
+            if (platformFile.delete()) _uiEventChannel.send(UiEvent.NavigateUp)
         }
     }
 
@@ -198,7 +185,7 @@ class FileViewModel(
     val showAI = combine(
         connectivityObserver.observe(),
         dataStoreRepository.booleanFlow(Constants.Preferences.IS_AI_ENABLED),
-        snapshotFlow { _fileEditingState.value.fileType }
+        _fileEditingState.map { it.fileType }.distinctUntilChanged()
     ) { status, isAiEnabled, noteType ->
         status == ConnectivityObserver.Status.Connected && isAiEnabled && noteType != NoteType.Drawing
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)

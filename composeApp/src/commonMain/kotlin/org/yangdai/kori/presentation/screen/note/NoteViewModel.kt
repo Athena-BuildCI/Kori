@@ -4,7 +4,6 @@ import ai.koog.utils.io.SuitableForIO
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.text.substring
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -13,8 +12,11 @@ import androidx.navigation.toRoute
 import knet.ConnectivityObserver
 import knet.ai.AI
 import knet.ai.GenerationResult
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -34,6 +36,7 @@ import org.yangdai.kori.data.local.entity.NoteType
 import org.yangdai.kori.domain.repository.DataStoreRepository
 import org.yangdai.kori.domain.repository.FolderRepository
 import org.yangdai.kori.domain.repository.NoteRepository
+import org.yangdai.kori.domain.repository.SnapshotRepository
 import org.yangdai.kori.domain.sort.FolderSortType
 import org.yangdai.kori.presentation.component.note.AIAssistEvent
 import org.yangdai.kori.presentation.navigation.Screen
@@ -52,6 +55,7 @@ class NoteViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val folderRepository: FolderRepository,
     private val noteRepository: NoteRepository,
+    private val snapshotRepository: SnapshotRepository,
     private val dataStoreRepository: DataStoreRepository,
     connectivityObserver: ConnectivityObserver,
 ) : ViewModel() {
@@ -128,6 +132,15 @@ class NoteViewModel(
         initialValue = emptyList()
     )
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val snapshots = _noteEditingState.flatMapLatest { noteEditingState ->
+        snapshotRepository.getSnapshotsByNoteIdFlow(noteEditingState.id)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000L),
+        initialValue = emptyList()
+    )
+
     val editorState = combine(
         dataStoreRepository.booleanFlow(Constants.Preferences.SHOW_LINE_NUMBER),
         dataStoreRepository.booleanFlow(Constants.Preferences.IS_LINTING_ENABLED),
@@ -170,36 +183,6 @@ class NoteViewModel(
             started = SharingStarted.Lazily,
             initialValue = emptyList()
         )
-
-    fun saveOrUpdateNote() {
-        if (_noteEditingState.value.isDeleted) return
-        viewModelScope.launch {
-            val newNote = NoteEntity(
-                id = _noteEditingState.value.id,
-                title = titleState.text.toString(),
-                content = contentState.text.toString(),
-                folderId = _noteEditingState.value.folderId,
-                createdAt = _noteEditingState.value.createdAt,
-                updatedAt = Clock.System.now().toString(),
-                isPinned = _noteEditingState.value.isPinned,
-                noteType = _noteEditingState.value.noteType
-            )
-            if (oNote.id.isEmpty()) {
-                if (newNote.title.isNotBlank() || newNote.content.isNotBlank()) {
-                    noteRepository.insertNote(newNote)
-                    oNote = newNote
-                }
-            } else {
-                if (oNote.title != newNote.title || oNote.content != newNote.content ||
-                    oNote.folderId != newNote.folderId || oNote.noteType != newNote.noteType ||
-                    oNote.isPinned != newNote.isPinned
-                ) {
-                    noteRepository.updateNote(newNote)
-                    oNote = newNote
-                }
-            }
-        }
-    }
 
     fun moveNoteToTrash() {
         viewModelScope.launch {
@@ -262,12 +245,44 @@ class NoteViewModel(
         }
     }
 
+    private val saveScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    fun saveOrUpdateNote() {
+        if (_noteEditingState.value.isDeleted) return
+        val newNote = NoteEntity(
+            id = _noteEditingState.value.id,
+            title = titleState.text.toString(),
+            content = contentState.text.toString(),
+            folderId = _noteEditingState.value.folderId,
+            createdAt = _noteEditingState.value.createdAt,
+            updatedAt = Clock.System.now().toString(),
+            isPinned = _noteEditingState.value.isPinned,
+            noteType = _noteEditingState.value.noteType
+        )
+        saveScope.launch {
+            if (oNote.id.isEmpty()) {
+                if (newNote.title.isNotBlank() || newNote.content.isNotBlank()) {
+                    noteRepository.insertNote(newNote)
+                    oNote = newNote
+                }
+            } else {
+                if (oNote.title != newNote.title || oNote.content != newNote.content ||
+                    oNote.folderId != newNote.folderId || oNote.noteType != newNote.noteType ||
+                    oNote.isPinned != newNote.isPinned
+                ) {
+                    noteRepository.updateNote(newNote)
+                    oNote = newNote
+                }
+            }
+        }
+    }
+
     /*----*/
 
     val showAI = combine(
         connectivityObserver.observe(),
         dataStoreRepository.booleanFlow(Constants.Preferences.IS_AI_ENABLED),
-        snapshotFlow { _noteEditingState.value.noteType }
+        _noteEditingState.map { it.noteType }.distinctUntilChanged()
     ) { status, isAiEnabled, noteType ->
         status == ConnectivityObserver.Status.Connected && isAiEnabled && noteType != NoteType.Drawing
     }.stateIn(viewModelScope, SharingStarted.Eagerly, false)

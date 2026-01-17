@@ -8,15 +8,16 @@ import androidx.lifecycle.viewModelScope
 import io.ktor.utils.io.charsets.Charsets
 import io.ktor.utils.io.core.toByteArray
 import kfile.PlatformFile
-import kfile.getExtension
-import kfile.getFileName
-import kfile.getLastModified
+import kfile.fileName
+import kfile.lastModified
 import kfile.readText
+import kfile.suitableNoteType
 import knet.ai.AI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -58,6 +59,7 @@ import org.yangdai.kori.presentation.screen.settings.decryptBackupDataWithCompat
 import org.yangdai.kori.presentation.util.Constants
 import org.yangdai.kori.presentation.util.SampleMarkdownNote
 import org.yangdai.kori.presentation.util.SampleTodoNote
+import kotlin.collections.map
 import kotlin.io.encoding.Base64
 import kotlin.math.round
 import kotlin.time.Clock
@@ -460,33 +462,15 @@ class MainViewModel(
             delay(300L)
             runCatching {
                 files.forEachIndexed { index, it ->
-                    val title = it.getFileName()
-                    val content = it.readText()
-                    val modified = it.getLastModified().toString()
-                    val noteType = if (it.getExtension().lowercase() in listOf(
-                            "md",
-                            "markdown",
-                            "mkd",
-                            "mdwn",
-                            "mdown",
-                            "mdtxt",
-                            "mdtext",
-                            "html"
-                        )
-                    ) NoteType.MARKDOWN
-                    else if (
-                        title.contains("todo", ignoreCase = true)
-                        && it.getExtension().lowercase() == "txt"
-                    ) NoteType.TODO
-                    else NoteType.PLAIN_TEXT
+                    val modified = it.lastModified().toString()
                     val noteEntity = NoteEntity(
                         id = Uuid.random().toString(),
-                        title = title,
-                        content = content,
+                        title = it.fileName.substringBeforeLast("."),
+                        content = it.readText(),
                         createdAt = modified,
                         updatedAt = modified,
                         folderId = folderId,
-                        noteType = noteType
+                        noteType = it.suitableNoteType
                     )
                     noteRepository.insertNote(noteEntity)
                     _dataActionState.update { it.copy(progress = (index + 1) / files.size.toFloat()) }
@@ -507,17 +491,22 @@ class MainViewModel(
             _dataActionState.value = DataActionState(infinite = true, progress = 0f)
             delay(300L)
             runCatching {
-                val notes = (noteRepository.getAllNotes().firstOrNull() ?: emptyList()).map {
-                    it.copy(
-                        title = Base64.encode(it.title.encodeToByteArray()),
-                        content = Base64.encode(it.content.encodeToByteArray())
-                    )
+                val notes = async {
+                    (noteRepository.getAllNotes().firstOrNull() ?: emptyList())
+                        .map {
+                            it.copy(
+                                title = Base64.encode(it.title.encodeToByteArray()),
+                                content = Base64.encode(it.content.encodeToByteArray())
+                            )
+                        }
                 }
-                val folders = folderRepository.getFoldersWithNoteCounts()
-                    .firstOrNull()
-                    ?.map { it.folder }
-                    ?: emptyList()
-                val backupData = BackupData(notes, folders)
+                val folders = async {
+                    (folderRepository.getFoldersWithNoteCounts().firstOrNull() ?: emptyList())
+                        .map {
+                            it.folder.copy(name = Base64.encode(it.folder.name.encodeToByteArray()))
+                        }
+                }
+                val backupData = BackupData(notes.await(), folders.await())
                 val jsonString = Json.encodeToString(backupData)
                 _dataActionState.update { it.copy(progress = 1f) }
                 delay(300L)
@@ -540,14 +529,26 @@ class MainViewModel(
             delay(300L)
             runCatching {
                 val backupData = Json.decodeFromString<BackupData>(json)
-                folderRepository.insertFolders(backupData.folders)
-                val decodedNotes = backupData.notes.map {
-                    it.copy(
-                        title = Base64.decode(it.title).decodeToString(),
-                        content = Base64.decode(it.content).decodeToString()
-                    )
-                }
-                noteRepository.insertNotes(decodedNotes)
+                folderRepository.insertFolders(
+                    backupData.folders.map {
+                        it.copy(
+                            name =
+                                try {
+                                    Base64.decode(it.name).decodeToString()
+                                } catch (_: Exception) {
+                                    it.name
+                                }
+                        )
+                    }
+                )
+                noteRepository.insertNotes(
+                    backupData.notes.map {
+                        it.copy(
+                            title = Base64.decode(it.title).decodeToString(),
+                            content = Base64.decode(it.content).decodeToString()
+                        )
+                    }
+                )
                 _dataActionState.update { it.copy(progress = 1f) }
             }.onSuccess {
                 delay(1500L)
