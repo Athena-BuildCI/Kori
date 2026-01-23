@@ -50,8 +50,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -279,33 +279,9 @@ fun NoteSideSheet(
                 ) {
                     var isAllExpanded by rememberSaveable { mutableStateOf(true) }
 
-                    var outline by remember {
-                        mutableStateOf(HeaderNode("", 0, IntRange.EMPTY))
-                    }
-
-                    LaunchedEffect(text, noteType) {
-                        withContext(Dispatchers.Default) {
-                            val root = HeaderNode("", 0, IntRange.EMPTY)
-                            // 只有 Markdown 才有大纲
-                            if (noteType != NoteType.MARKDOWN || text.isBlank()) {
-                                outline = root
-                                return@withContext
-                            }
-                            val tree = MarkdownDefaults.parser.buildMarkdownTreeFromString(text)
-                            val propertiesLineRange = text.getPropertiesLineRange()
-                            try {
-                                val headerStack = mutableListOf(root)
-                                findHeadersRecursive(
-                                    tree,
-                                    text,
-                                    headerStack,
-                                    propertiesLineRange
-                                )
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                            outline = root
-                        }
+                    val outline by produceState(HeaderNode(), text, noteType) {
+                        value =
+                            if (noteType == NoteType.MARKDOWN) HeaderNode.fromText(text) else HeaderNode()
                     }
 
                     Row {
@@ -355,11 +331,8 @@ fun NoteSideSheet(
                                         )
                                         drawerContent()
                                         if (noteType == NoteType.PLAIN_TEXT || noteType == NoteType.MARKDOWN) {
-                                            var textState by remember { mutableStateOf(TextState()) }
-                                            LaunchedEffect(text) {
-                                                withContext(Dispatchers.Default) {
-                                                    textState = TextState.fromText(text)
-                                                }
+                                            val textState by produceState(TextState(), text) {
+                                                value = TextState.fromText(text)
                                             }
                                             /**文本文件信息：字符数，单词数，行数，段落数**/
                                             NoteSideSheetItem(
@@ -383,43 +356,25 @@ fun NoteSideSheet(
                                                 value = formatNumber(textState.paragraphCount)
                                             )
                                         } else if (noteType == NoteType.TODO) {
-                                            /**总任务，已完成，待办，进度**/
-                                            var totalTasks by remember { mutableIntStateOf(0) }
-                                            var completedTasks by remember { mutableIntStateOf(0) }
-                                            var pendingTasks by remember { mutableIntStateOf(0) }
-                                            var progress by remember { mutableIntStateOf(0) }
-                                            LaunchedEffect(text) {
-                                                withContext(Dispatchers.Default) {
-                                                    val lines = text.lines()
-                                                    totalTasks = lines.count { it.isNotBlank() }
-                                                    completedTasks =
-                                                        lines.count {
-                                                            it.trim()
-                                                                .startsWith("x", ignoreCase = true)
-                                                        }
-                                                    pendingTasks = totalTasks - completedTasks
-                                                    progress = if (totalTasks > 0) {
-                                                        (completedTasks.toFloat() / totalTasks.toFloat() * 100).toInt()
-                                                    } else {
-                                                        0
-                                                    }
-                                                }
+                                            val todoState by produceState(TodoState(), text) {
+                                                value = TodoState.fromText(text)
                                             }
+                                            /**总任务，已完成，待办，进度**/
                                             NoteSideSheetItem(
                                                 key = stringResource(Res.string.total_tasks),
-                                                value = totalTasks.toString()
+                                                value = todoState.totalTasks.toString()
                                             )
                                             NoteSideSheetItem(
                                                 key = stringResource(Res.string.completed_tasks),
-                                                value = completedTasks.toString()
+                                                value = todoState.completedTasks.toString()
                                             )
                                             NoteSideSheetItem(
                                                 key = stringResource(Res.string.pending_tasks),
-                                                value = pendingTasks.toString()
+                                                value = todoState.pendingTasks.toString()
                                             )
                                             NoteSideSheetItem(
                                                 key = stringResource(Res.string.progress),
-                                                value = "$progress%"
+                                                value = "${todoState.progress}%"
                                             )
                                         }
                                     }
@@ -427,7 +382,7 @@ fun NoteSideSheet(
                             }
 
                             // ... 大纲部分 (outline) ...
-                            if (outline.children.isNotEmpty() && noteType == NoteType.MARKDOWN)
+                            if (outline.children.isNotEmpty()) {
                                 item(contentType = "Divider") {
                                     HorizontalDivider(modifier = Modifier.padding(top = 8.dp))
                                     Row(
@@ -453,7 +408,6 @@ fun NoteSideSheet(
                                     }
                                 }
 
-                            if (outline.children.isNotEmpty() && noteType == NoteType.MARKDOWN)
                                 items(outline.children) { header ->
                                     HeaderItem(
                                         header = header,
@@ -462,6 +416,7 @@ fun NoteSideSheet(
                                         parentExpanded = isAllExpanded
                                     )
                                 }
+                            }
                         }
                         Spacer(Modifier.fillMaxHeight().width(paddingWidth))
                     }
@@ -478,46 +433,67 @@ fun NoteSideSheet(
 
 @Stable
 private data class HeaderNode(
-    val title: String,
-    val level: Int,
-    val range: IntRange,
+    val title: String = "",
+    val level: Int = 0,
+    val range: IntRange = IntRange.EMPTY,
     val children: MutableList<HeaderNode> = mutableListOf()
-)
-
-@Composable
-fun NoteSideSheetItem(
-    key: String,
-    value: String
-) = Row(
-    modifier = Modifier.fillMaxWidth(),
-    verticalAlignment = Alignment.CenterVertically,
-    horizontalArrangement = Arrangement.Start
 ) {
-
-    val annotatedString = buildAnnotatedString {
-        withStyle(
-            SpanStyle(
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        ) {
-            append("$key：")
-        }
-        withStyle(
-            SpanStyle(
-                fontWeight = FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        ) {
-            append(value)
+    companion object {
+        suspend fun fromText(text: String): HeaderNode {
+            return if (text.isBlank()) HeaderNode("", 0, IntRange.EMPTY)
+            else withContext(Dispatchers.Default) {
+                val root = HeaderNode("", 0, IntRange.EMPTY)
+                val tree = MarkdownDefaults.parser.buildMarkdownTreeFromString(text)
+                val propertiesLineRange = text.getPropertiesLineRange()
+                try {
+                    val headerStack = mutableListOf(root)
+                    findHeadersRecursive(
+                        tree,
+                        text,
+                        headerStack,
+                        propertiesLineRange
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                root
+            }
         }
     }
-
-    Text(
-        text = annotatedString,
-        style = MaterialTheme.typography.bodyLarge
-    )
 }
+
+@Composable
+fun NoteSideSheetItem(key: String, value: String) =
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
+    ) {
+
+        val annotatedString = buildAnnotatedString {
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                append("$key：")
+            }
+            withStyle(
+                SpanStyle(
+                    fontWeight = FontWeight.Normal,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            ) {
+                append(value)
+            }
+        }
+
+        Text(
+            text = annotatedString,
+            style = MaterialTheme.typography.bodyLarge
+        )
+    }
 
 @Composable
 private fun HeaderItem(
@@ -668,67 +644,102 @@ private data class TextState(
             return ch in "，。、：；？！\"'（）《》「」【】!§$%&/()=?`*_:;><|,.#+~\\´{[]}"
         }
 
-        fun fromText(text: CharSequence): TextState {
-            if (text.isBlank()) return TextState()
+        suspend fun fromText(text: CharSequence): TextState {
+            return if (text.isBlank()) TextState()
+            else withContext(Dispatchers.Default) {
+                val charCount = text.length
+                var lineCount = 1
+                var paragraphCount = 1
+                var punctuationIncludedWordCount = 0
+                var nonPunctuationWordCount = 0
 
-            val charCount = text.length
-            var lineCount = 1
-            var paragraphCount = 1
-            var punctuationIncludedWordCount = 0
-            var nonPunctuationWordCount = 0
+                var state = 0
+                val inWord = 1
+                val previousWasNewline = 2
 
-            var state = 0
-            val inWord = 1
-            val previousWasNewline = 2
+                var i = 0
+                while (i < text.length) {
+                    val ch = text[i]
+                    when {
+                        ch == '\n' -> {
+                            state = state and inWord.inv()
+                            lineCount++
 
-            var i = 0
-            while (i < text.length) {
-                val ch = text[i]
-                when {
-                    ch == '\n' -> {
-                        state = state and inWord.inv()
-                        lineCount++
-
-                        if ((state and previousWasNewline) != 0) {
-                            paragraphCount++
+                            if ((state and previousWasNewline) != 0) {
+                                paragraphCount++
+                            }
+                            state = state or previousWasNewline
                         }
-                        state = state or previousWasNewline
-                    }
 
-                    ch.isWhitespace() -> {
-                        state = state and (inWord or previousWasNewline).inv()
-                    }
+                        ch.isWhitespace() -> {
+                            state = state and (inWord or previousWasNewline).inv()
+                        }
 
-                    isCJK(ch.code) -> {
-                        punctuationIncludedWordCount++
-                        nonPunctuationWordCount++
-                        state = state and (inWord or previousWasNewline).inv()
-                    }
-
-                    isPunctuation(ch) -> {
-                        punctuationIncludedWordCount++
-                        state = state and (inWord or previousWasNewline).inv()
-                    }
-
-                    else -> {
-                        if ((state and inWord) == 0) {
-                            state = state or inWord
+                        isCJK(ch.code) -> {
                             punctuationIncludedWordCount++
                             nonPunctuationWordCount++
+                            state = state and (inWord or previousWasNewline).inv()
                         }
-                        state = state and previousWasNewline.inv()
-                    }
-                }
-                i++
-            }
 
-            return TextState(
-                charCount = charCount,
-                wordCountWithPunctuation = punctuationIncludedWordCount,
-                wordCountWithoutPunctuation = nonPunctuationWordCount,
-                lineCount = lineCount,
-                paragraphCount = paragraphCount
-            )
+                        isPunctuation(ch) -> {
+                            punctuationIncludedWordCount++
+                            state = state and (inWord or previousWasNewline).inv()
+                        }
+
+                        else -> {
+                            if ((state and inWord) == 0) {
+                                state = state or inWord
+                                punctuationIncludedWordCount++
+                                nonPunctuationWordCount++
+                            }
+                            state = state and previousWasNewline.inv()
+                        }
+                    }
+                    i++
+                }
+
+                TextState(
+                    charCount = charCount,
+                    wordCountWithPunctuation = punctuationIncludedWordCount,
+                    wordCountWithoutPunctuation = nonPunctuationWordCount,
+                    lineCount = lineCount,
+                    paragraphCount = paragraphCount
+                )
+            }
+        }
+    }
+}
+
+private data class TodoState(
+    val totalTasks: Int = 0,
+    val completedTasks: Int = 0,
+    val pendingTasks: Int = 0,
+    val progress: Int = 0
+) {
+    companion object {
+        suspend fun fromText(text: CharSequence): TodoState {
+            return if (text.isBlank()) TodoState()
+            else withContext(Dispatchers.Default) {
+                val lines = text.lines()
+                val totalTasks = lines.count { it.isNotBlank() }
+                val completedTasks =
+                    lines.count {
+                        it.trim()
+                            .startsWith("x", ignoreCase = true)
+                    }
+                val pendingTasks = totalTasks - completedTasks
+                val progress = if (totalTasks > 0) {
+                    (completedTasks.toFloat() / totalTasks.toFloat() * 100).toInt()
+                } else {
+                    0
+                }
+                TodoState(
+                    totalTasks = totalTasks,
+                    completedTasks = completedTasks,
+                    pendingTasks = pendingTasks,
+                    progress = progress
+                )
+            }
         }
     }
 }
