@@ -1,6 +1,5 @@
 package org.yangdai.kori.presentation.screen.note
 
-import ai.koog.utils.io.SuitableForIO
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -33,6 +32,7 @@ import kotlinx.coroutines.launch
 import org.yangdai.kori.data.local.dao.FolderDao
 import org.yangdai.kori.data.local.entity.NoteEntity
 import org.yangdai.kori.data.local.entity.NoteType
+import org.yangdai.kori.data.local.entity.SnapshotEntity
 import org.yangdai.kori.domain.repository.DataStoreRepository
 import org.yangdai.kori.domain.repository.FolderRepository
 import org.yangdai.kori.domain.repository.NoteRepository
@@ -271,9 +271,26 @@ class NoteViewModel(
                     oNote.isPinned != newNote.isPinned
                 ) {
                     noteRepository.updateNote(newNote)
+                    if (oNote.content != newNote.content)
+                        snapshotRepository.saveNewSnapshotForNote(
+                            noteId = oNote.id,
+                            content = oNote.content
+                        )
                     oNote = newNote
                 }
             }
+        }
+    }
+
+    fun deleteSnapshot(snapshot: SnapshotEntity) {
+        viewModelScope.launch {
+            snapshotRepository.deleteSnapshot(snapshot)
+        }
+    }
+
+    fun clearSnapshots() {
+        viewModelScope.launch {
+            snapshotRepository.deleteSnapshotsByNoteId(_noteEditingState.value.id)
         }
     }
 
@@ -291,21 +308,16 @@ class NoteViewModel(
     val isGenerating = _isGenerating.asStateFlow()
 
     fun onAIAssistEvent(event: AIAssistEvent) {
-        viewModelScope.launch(Dispatchers.SuitableForIO) {
+        viewModelScope.launch {
             _isGenerating.update { true }
             val selection = contentState.selection
             val selectedText = contentState.text.substring(selection)
-            val defaultProviderId = dataStoreRepository.getString(
-                Constants.Preferences.AI_PROVIDER,
-                AI.providers.keys.first()
-            )
-            val llmProvider = AI.providers[defaultProviderId] ?: AI.providers.values.first()
-            val llmConfig = getLLMConfig(llmProvider, dataStoreRepository)
+            val llmConfig = dataStoreRepository.getLLMConfig()
             val response = AI.executePrompt(
-                lLMProvider = llmProvider,
-                baseUrl = llmConfig.first,
-                model = llmConfig.second,
-                apiKey = llmConfig.third,
+                lLMProvider = llmConfig.provider,
+                baseUrl = llmConfig.baseUrl,
+                model = llmConfig.model,
+                apiKey = llmConfig.apiKey,
                 userInput = when (event) {
                     AIAssistEvent.Rewrite -> AI.EventPrompt.REWRITE + "\n" + selectedText
                     AIAssistEvent.Summarize -> AI.EventPrompt.SUMMARIZE + "\n" + selectedText

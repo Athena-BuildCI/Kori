@@ -22,6 +22,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.PictureInPicture
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
@@ -93,6 +94,7 @@ import org.yangdai.kori.presentation.component.dialog.ExportDialog
 import org.yangdai.kori.presentation.component.dialog.FoldersDialog
 import org.yangdai.kori.presentation.component.dialog.NoteTypeDialog
 import org.yangdai.kori.presentation.component.dialog.ShareDialog
+import org.yangdai.kori.presentation.component.dialog.SnapshotsDialog
 import org.yangdai.kori.presentation.component.dialog.TemplatesBottomSheet
 import org.yangdai.kori.presentation.component.note.AIAssist
 import org.yangdai.kori.presentation.component.note.AdaptiveActionRow
@@ -113,6 +115,7 @@ import org.yangdai.kori.presentation.component.note.rememberFindAndReplaceState
 import org.yangdai.kori.presentation.navigation.Screen
 import org.yangdai.kori.presentation.navigation.UiEvent
 import org.yangdai.kori.presentation.util.formatInstant
+import org.yangdai.kori.presentation.util.isFloatingWindowEnabled
 import org.yangdai.kori.presentation.util.rememberIsScreenWidthExpanded
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
@@ -129,6 +132,7 @@ fun NoteScreen(
     val editorState by viewModel.editorState.collectAsStateWithLifecycle()
     val showAI by viewModel.showAI.collectAsStateWithLifecycle()
     val isGenerating by viewModel.isGenerating.collectAsStateWithLifecycle()
+    val snapshots by viewModel.snapshots.collectAsStateWithLifecycle()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, viewModel) {
@@ -181,6 +185,7 @@ fun NoteScreen(
     var showShareDialog by remember { mutableStateOf(false) }
     var showExportDialog by remember { mutableStateOf(false) }
     var showTemplatesBottomSheet by remember { mutableStateOf(false) }
+    var showSnapshots by remember { mutableStateOf(false) }
     val printTrigger = remember { mutableStateOf(false) }
     val cachedImageBitmap = remember { mutableStateOf<ImageBitmap?>(null) }
     val isWideScreen = rememberIsScreenWidthExpanded()
@@ -249,6 +254,13 @@ fun NoteScreen(
                             icon = if (isSearching) Icons.Default.SearchOff
                             else Icons.Default.Search,
                             onClick = { isSearching = !isSearching }
+                        )
+
+                    // Todo 实现笔记悬浮窗功能
+                    if (isReadView && isFloatingWindowEnabled)
+                        TooltipIconButton(
+                            icon = Icons.Default.PictureInPicture,
+                            onClick = {}
                         )
 
                     TooltipIconButton(
@@ -465,7 +477,8 @@ fun NoteScreen(
                 key = stringResource(Res.string.updated),
                 value = formattedUpdated
             )
-        }
+        },
+        openSnapshots = { showSnapshots = true }
     )
 
     if (showNoteTypeDialog) {
@@ -502,6 +515,20 @@ fun NoteScreen(
                 updatedAt = editingState.updatedAt
             ),
             onDismissRequest = { showExportDialog = false }
+        )
+    }
+
+    if (showSnapshots) {
+        SnapshotsDialog(
+            snapshots = snapshots,
+            currentContent = viewModel.contentState.text.toString(),
+            onDismissRequest = { showSnapshots = false },
+            onRestoreSnapshot = { snapshot ->
+                viewModel.contentState.setTextAndPlaceCursorAtEnd(snapshot.content)
+                showSnapshots = false
+            },
+            onDeleteSnapshot = { snapshot -> viewModel.deleteSnapshot(snapshot) },
+            onClearSnapshots = { viewModel.clearSnapshots() }
         )
     }
 }
